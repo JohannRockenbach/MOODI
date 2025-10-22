@@ -15,5 +15,15 @@
     "CUIT": "CUIT",
     "Contact Phone": "Teléfono de Contacto",
     "Schedules": "Horarios",
-    "Stock": "Stock"
+    "Stock": "Stock",
+    "Provider": "Proveedor",
+    "Providers": "Proveedores",
+    "Business Name": "Razón Social",
+    "Phone": "Teléfono",
+    "Email": "Correo Electrónico",
+    "Ingredient": "Ingrediente",
+    "Ingredients": "Ingredientes",
+    "Current Stock": "Stock Actual",
+    "Measurement Unit": "Unidad de Medida",
+    "Reorder Point": "Punto de Reorden"
 }
