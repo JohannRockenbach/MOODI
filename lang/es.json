@@ -1,0 +1,19 @@
+{
+    "Name": "Nombre",
+    "Description": "Descripción",
+    "Created at": "Fecha de Creación",
+    "Updated at": "Fecha de Actualización",
+    "Category": "Categoría",
+    "Categories": "Categorías",
+    "Product": "Producto",
+    "Products": "Productos",
+    "Price": "Precio",
+    "Available": "Disponible",
+    "Restaurant": "Restaurante",
+    "Restaurants": "Restaurantes",
+    "Address": "Dirección",
+    "CUIT": "CUIT",
+    "Contact Phone": "Teléfono de Contacto",
+    "Schedules": "Horarios",
+    "Stock": "Stock"
+}
