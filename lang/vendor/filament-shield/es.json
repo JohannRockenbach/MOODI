@@ -1,0 +1,21 @@
+{
+    "view": "Ver Detalle",
+    "view_any": "Ver Listado",
+    "create": "Crear",
+    "update": "Actualizar",
+    "delete": "Eliminar",
+    "delete_any": "Eliminar Múltiples",
+    "restore": "Restaurar",
+    "restore_any": "Restaurar Múltiples",
+    "force_delete": "Forzar Eliminación",
+    "force_delete_any": "Forzar Eliminación Múltiple",
+    "replicate": "Duplicar",
+    "reorder": "Reordenar",
+    "resource": "Recurso",
+    "page": "Página",
+    "widget": "Widget",
+    "view_menu": "Ver Menú",
+    "select_table": "Seleccionar Mesa",
+    "assign_table": "Asignar Mesa",
+    "close_cash_register": "Cerrar Caja"
+}

@@ -12,8 +12,7 @@ class EditCategory extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        // Hide the header delete action to avoid accidental deletion from the edit page.
+        return [];
     }
 }

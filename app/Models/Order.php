@@ -15,14 +15,20 @@ class Order extends Model
     protected $fillable = [
         'status',
         'type',
+        'notes',
         'table_id',
         'waiter_id',
         'restaurant_id',
+        'delivery_address',
+        'delivery_phone',
+        'customer_name',
+        'stock_deducted',
+        'customer_id',
     ];
 
-    /*
-     Relaciones
-    */
+    protected $casts = [
+        'stock_deducted' => 'boolean',
+    ];
 
     /**
      * Un pedido se realiza en UNA mesa.
@@ -41,6 +47,15 @@ class Order extends Model
     }
 
     /**
+     * Alias de waiter() para compatibilidad.
+     * Un pedido pertenece a un usuario (el mozo).
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'waiter_id');
+    }
+
+    /**
      * Un pedido PERTENECE A un restaurante.
      */
     public function restaurant(): BelongsTo
@@ -53,9 +68,17 @@ class Order extends Model
      */
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class)
-                    ->withPivot('quantity', 'notes') // Traemos la info extra de la tabla pivote.
-                    ->withTimestamps(); // También traemos created_at/updated_at de la tabla pivote.
+        return $this->belongsToMany(Product::class, 'order_product')
+                    ->withPivot('quantity', 'price', 'notes')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Direct access to the pivot records (order_product).
+     */
+    public function orderProducts()
+    {
+        return $this->hasMany(OrderProduct::class);
     }
 
     /**
@@ -64,5 +87,13 @@ class Order extends Model
     public function sale(): HasOne
     {
         return $this->hasOne(Sale::class);
+    }
+
+    /**
+     * Un pedido puede pertenecer a UN cliente (opcional).
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Cliente::class, 'customer_id');
     }
 }

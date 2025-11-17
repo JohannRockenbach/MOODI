@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes; // <-- 1. IMPORTANTE: Importar el Trait
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles; //importa el trait
 
 class User extends Authenticatable
 {
     // Usamos los Traits que nos da Laravel y añadimos el nuestro
-    use HasFactory, Notifiable, SoftDeletes; // <-- 2. IMPORTANTE: Usar el Trait
+    use HasFactory, Notifiable, SoftDeletes, HasRoles; // <-- 2. IMPORTANTE: Usar el Trait y AÑADIR HasRoles
 
     /**
      * The attributes that are mass assignable.
@@ -26,6 +27,16 @@ class User extends Authenticatable
         'phone',
         'account_status',
         'restaurant_id', // Incluimos la FK para poder asignarla masivamente
+        // Nuevos campos de empleados
+        'dni',
+        'address',
+        'birth_date',
+        'work_shift',
+        'contract_type',
+        'employment_status',
+        'start_date',
+        'end_date',
+        'observations',
     ];
 
     /**
@@ -46,6 +57,9 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'birth_date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
         ];
     }
 
@@ -79,5 +93,21 @@ class User extends Authenticatable
     {
         // Hacemos lo mismo para las ventas y la clave 'cashier_id'.
         return $this->hasMany(Sale::class, 'cashier_id');
+    }
+
+    /**
+     * Un usuario puede abrir muchas cajas.
+     */
+    public function openedCajas(): HasMany
+    {
+        return $this->hasMany(Caja::class, 'opening_user_id');
+    }
+
+    /**
+     * Un usuario puede cerrar muchas cajas.
+     */
+    public function closedCajas(): HasMany
+    {
+        return $this->hasMany(Caja::class, 'closing_user_id');
     }
 }

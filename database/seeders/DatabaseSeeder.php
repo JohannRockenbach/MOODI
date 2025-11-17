@@ -15,11 +15,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Comentamos seeders antiguos
         // User::factory(10)->create();
+        
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
+        
+        // $this->call(\Database\Seeders\CategorySeeder::class);
+        // $this->call(\Database\Seeders\OrderReservationSaleSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Ejecutamos solo el nuevo seeder de hamburguesería
+        $this->call([
+            BurgerMenuSeeder::class,
         ]);
     }
 }

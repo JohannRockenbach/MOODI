@@ -43,6 +43,15 @@ class Table extends Model
     }
 
     /**
+     * Alias para la relación waiter (usado en Filament)
+     * Permite usar tanto $table->user como $table->waiter
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'waiter_id');
+    }
+
+    /**
      * Una mesa puede tener MUCHAS reservas asociadas.
      */
     public function reservations(): HasMany

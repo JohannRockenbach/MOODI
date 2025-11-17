@@ -20,6 +20,9 @@ class ProviderResource extends Resource
     protected static ?string $model = Provider::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-truck'; // Ícono de camión
+    protected static ?string $navigationGroup = 'Inventario y Compras';
+    protected static ?int $navigationSort = 2;
+
 
     // --- Etiquetas en Español ---
     protected static ?string $modelLabel = 'Proveedor';
@@ -36,11 +39,10 @@ class ProviderResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->columnSpanFull(),
+                // Ocultar y fijar restaurant_id = 1
                 Forms\Components\Select::make('restaurant_id')
-                    ->label(__('Restaurant'))
-                    ->options(Restaurant::all()->pluck('name', 'id'))
-                    ->searchable()
-                    ->required(),
+                    ->hidden()
+                    ->default(1),
                 Forms\Components\TextInput::make('cuit')
                     ->label(__('CUIT'))
                     ->required()
@@ -72,10 +74,12 @@ class ProviderResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->label(__('Email'))
                     ->searchable(),
-                Tables\Columns\TextColumn::make('restaurant.name') // <-- Relación
+                // Ocultar columna restaurant
+                Tables\Columns\TextColumn::make('restaurant.name')
                     ->label(__('Restaurant'))
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->hidden(),
             ])
             ->filters([
                 // (No hemos añadido SoftDeletes a Proveedores, así que no es necesario)
@@ -93,7 +97,7 @@ class ProviderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\IngredientsRelationManager::class,
         ];
     }
     
@@ -104,5 +108,11 @@ class ProviderResource extends Resource
             'create' => Pages\CreateProvider::route('/create'),
             'edit' => Pages\EditProvider::route('/{record}/edit'),
         ];
-    }    
+    }
+    
+    // Filtrar solo registros del restaurante ID = 1
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->where('restaurant_id', 1);
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use Filament\Http\Middleware\Authenticate;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -30,6 +31,10 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->topNavigation()
+            ->defaultAvatarProvider(\Filament\AvatarProviders\UiAvatarsProvider::class)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -37,8 +42,18 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets del sistema
+                // Widgets\AccountWidget::class,
+                // Widgets\FilamentInfoWidget::class,
+                
+                // Widgets personalizados del Dashboard
+                \App\Filament\Widgets\StockNotificationsWidget::class, // Notificaciones de stock (primero)
+                \App\Filament\Widgets\MarketingOverview::class, // Resumen de Automatizaciones de Marketing
+                \App\Filament\Widgets\WeatherOverview::class, // Estado del Clima
+                \App\Filament\Widgets\StatsOverview::class,
+                \App\Filament\Widgets\SalesChart::class,
+                \App\Filament\Widgets\LatestOrders::class,
+                \App\Filament\Widgets\LowStockWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -50,6 +65,9 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+            ])
+            ->plugins([
+                FilamentShieldPlugin::make(),
             ])
             ->authMiddleware([
                 Authenticate::class,

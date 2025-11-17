@@ -14,7 +14,7 @@ class Ingredient extends Model
 
     protected $fillable = [
         'name',
-        'current_stock',
+        'min_stock',
         //medicion
         'measurement_unit',
         'reorder_point',
@@ -24,7 +24,6 @@ class Ingredient extends Model
     protected function casts(): array
     {
         return [
-            'current_stock' => 'decimal:3',
             'reorder_point' => 'decimal:3',
         ];
     }
@@ -57,5 +56,13 @@ class Ingredient extends Model
     {
         return $this->belongsToMany(Recipe::class)
                     ->withPivot('required_amount');
+    }
+
+    /**
+     * Un ingrediente tiene MUCHOS lotes.
+     */
+    public function batches()
+    {
+        return $this->hasMany(IngredientBatch::class);
     }
 }

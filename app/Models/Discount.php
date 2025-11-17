@@ -12,10 +12,13 @@ class Discount extends Model
     use HasFactory;
 
     protected $fillable = [
+        'name',
         'code',
         'description',
         'type',
         'value',
+        'is_active',
+        'expires_at',
         'restaurant_id',
     ];
 
@@ -23,6 +26,8 @@ class Discount extends Model
     {
         return [
             'value' => 'decimal:2',
+            'is_active' => 'boolean',
+            'expires_at' => 'datetime',
         ];
     }
 

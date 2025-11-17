@@ -19,7 +19,14 @@ class RestaurantResource extends Resource
 {
     protected static ?string $model = Restaurant::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-building-storefront'; // Ícono para restaurantes
+    // OCULTAR DE LA NAVEGACIÓN (sin eliminar el código para reutilización futura)
+    protected static bool $shouldRegisterNavigation = false;
+
+    protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
+    // Agrupar en Administración y colocar junto al Escritorio
+    protected static ?string $navigationGroup = 'Administración';
+    protected static ?int $navigationSort = 0;
+
 
     // --- ETIQUETAS EN ESPAÑOL ---
     protected static ?string $modelLabel = 'Restaurante';

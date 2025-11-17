@@ -18,6 +18,9 @@ public function up(): void
         // Número de la mesa que ve el cliente (Ej: 5, 12, A3). Usamos string por si hay letras.
         $table->string('number');
 
+        // Hacemos que el número de mesa sea único POR RESTAURANTE.
+        $table->unique(['restaurant_id', 'number']);
+
         // Cuántas personas caben en la mesa.
         $table->unsignedInteger('capacity');
 

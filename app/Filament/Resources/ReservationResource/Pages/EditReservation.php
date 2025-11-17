@@ -1,0 +1,17 @@
+<?php
+
+namespace App\Filament\Resources\ReservationResource\Pages;
+
+use App\Filament\Resources\ReservationResource;
+use Filament\Resources\Pages\EditRecord;
+
+class EditReservation extends EditRecord
+{
+    protected static string $resource = ReservationResource::class;
+    
+    // Redirigir a la lista después de editar
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+}

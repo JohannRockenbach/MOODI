@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use App\Http\Livewire\CajaBalance;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +21,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register Livewire component alias for CajaBalance (ensures @livewire('caja-balance') resolves)
+        if (class_exists(CajaBalance::class)) {
+            Livewire::component('caja-balance', CajaBalance::class);
+        }
     }
 }

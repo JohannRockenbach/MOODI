@@ -19,22 +19,12 @@ class Reservation extends Model
         'restaurant_id',
     ];
 
-    /**
-     * The attributes that should be cast.
-     */
-    protected function casts(): array
-    {
-        return [
-            'reservation_time' => 'datetime', // Tratar este campo como un objeto de fecha/hora.
-        ];
-    }
-
-    /*
-     Relaciones
-    */
+    protected $casts = [
+        'reservation_time' => 'datetime',
+    ];
 
     /**
-     * Una reserva PERTENECE A un cliente (que es un usuario).
+     * Cliente que realizó la reserva
      */
     public function customer(): BelongsTo
     {
@@ -42,7 +32,7 @@ class Reservation extends Model
     }
 
     /**
-     * Una reserva se hace para UNA mesa.
+     * Mesa asignada a la reserva
      */
     public function table(): BelongsTo
     {
@@ -50,7 +40,7 @@ class Reservation extends Model
     }
 
     /**
-     * Una reserva PERTENECE A un restaurante.
+     * Restaurante donde se realiza la reserva
      */
     public function restaurant(): BelongsTo
     {
