@@ -19,6 +19,9 @@ class PromoEmail extends Mailable
     public string $title;
     public string $body;
     public string $actionUrl;
+    public ?string $couponCode;
+    public ?string $discountText;
+    public ?string $validUntil;
 
     /**
      * Create a new message instance.
@@ -26,12 +29,24 @@ class PromoEmail extends Mailable
      * @param string $title Título de la promoción
      * @param string $body Texto del cuerpo del mensaje
      * @param string $actionUrl URL del botón de acción
+     * @param string|null $couponCode Código de cupón (opcional)
+     * @param string|null $discountText Texto del descuento (ej: "20% OFF")
+     * @param string|null $validUntil Fecha de vencimiento (opcional)
      */
-    public function __construct(string $title, string $body, string $actionUrl)
-    {
+    public function __construct(
+        string $title,
+        string $body,
+        string $actionUrl,
+        ?string $couponCode = null,
+        ?string $discountText = null,
+        ?string $validUntil = null
+    ) {
         $this->title = $title;
         $this->body = $body;
         $this->actionUrl = $actionUrl;
+        $this->couponCode = $couponCode;
+        $this->discountText = $discountText;
+        $this->validUntil = $validUntil;
     }
 
     /**

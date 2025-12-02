@@ -26,6 +26,31 @@ Route::middleware('auth')->group(function () {
             'initial_balance' => $caja->initial_balance,
         ]);
     })->name('cajas.balance');
+    
+    // API endpoint for table map - update position
+    Route::post('/admin/table-map/update-position', function (Illuminate\Http\Request $request) {
+        if (!auth()->user()->hasAnyRole(['super_admin'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
+        $validated = $request->validate([
+            'tableId' => 'required|integer',
+            'posX' => 'required|integer',
+            'posY' => 'required|integer',
+        ]);
+        
+        $table = \App\Models\Table::find($validated['tableId']);
+        if (!$table) {
+            return response()->json(['error' => 'Table not found'], 404);
+        }
+        
+        $table->update([
+            'pos_x' => $validated['posX'],
+            'pos_y' => $validated['posY'],
+        ]);
+        
+        return response()->json(['success' => true]);
+    })->name('table-map.update-position');
 });
 
 require __DIR__.'/auth.php';

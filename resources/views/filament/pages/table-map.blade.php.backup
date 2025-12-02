@@ -1,0 +1,351 @@
+<x-filament-panels::page>
+    {{-- VERSIÓN ACTUALIZADA 2025-11-19 --}}
+    
+    {{-- Estadísticas --}}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {{-- Disponibles --}}
+        <div class="bg-white dark:bg-gray-900 border-4 border-yellow-400 rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase mb-1">Disponibles</p>
+                    <p class="text-5xl font-black text-yellow-500">{{ $stats['available'] }}</p>
+                </div>
+                <div class="bg-yellow-400 rounded-xl p-4">
+                    <x-heroicon-o-check-circle class="w-12 h-12 text-black" />
+                </div>
+            </div>
+        </div>
+
+        {{-- Ocupadas --}}
+        <div class="bg-black border-4 border-yellow-400 rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-bold text-gray-400 uppercase mb-1">Ocupadas</p>
+                    <p class="text-5xl font-black text-yellow-400">{{ $stats['occupied'] }}</p>
+                </div>
+                <div class="bg-yellow-400 rounded-xl p-4">
+                    <x-heroicon-o-fire class="w-12 h-12 text-black animate-pulse" />
+                </div>
+            </div>
+        </div>
+
+        {{-- Reservadas --}}
+        <div class="bg-yellow-400 border-4 border-black rounded-xl p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-bold text-black uppercase mb-1">Reservadas</p>
+                    <p class="text-5xl font-black text-black">{{ $stats['reserved'] }}</p>
+                </div>
+                <div class="bg-black rounded-xl p-4">
+                    <x-heroicon-o-clock class="w-12 h-12 text-yellow-400" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Mesas por Ubicación --}}
+    @foreach($tablesByLocation as $location => $tables)
+        <div class="mb-8 bg-white dark:bg-gray-900 rounded-xl p-6 border-4 border-yellow-400">
+            
+            {{-- Encabezado --}}
+            <div class="flex items-center justify-between mb-6 pb-4 border-b-2 border-yellow-400">
+                <div class="flex items-center gap-3">
+                    <div class="bg-yellow-400 rounded-lg p-3">
+                        <x-heroicon-o-map-pin class="w-8 h-8 text-black" />
+                    </div>
+                    <h2 class="text-3xl font-black text-gray-900 dark:text-white uppercase">{{ $location }}</h2>
+                </div>
+                <div class="bg-yellow-400 rounded-lg px-4 py-2">
+                    <span class="text-xl font-bold text-black">{{ count($tables) }} mesas</span>
+                </div>
+            </div>
+
+            {{-- Grid de Mesas --}}
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                @foreach($tables as $table)
+                    <div 
+                        wire:click="openTable({{ $table['id'] }})"
+                        @if($table['status'] === 'available')
+                            class="relative bg-white dark:bg-gray-800 border-4 border-yellow-400 rounded-xl p-4 cursor-pointer hover:shadow-xl transition-all"
+                        @elseif($table['status'] === 'occupied')
+                            class="relative bg-black border-4 border-yellow-400 rounded-xl p-4 cursor-pointer hover:shadow-xl transition-all"
+                        @else
+                            class="relative bg-yellow-400 border-4 border-black rounded-xl p-4 cursor-pointer hover:shadow-xl transition-all"
+                        @endif
+                    >
+                        {{-- Badge de Pedidos --}}
+                        @if($table['orders_count'] > 0)
+                            <div class="absolute -top-2 -right-2 bg-yellow-400 border-4 border-black rounded-full w-12 h-12 flex items-center justify-center text-lg font-black text-black shadow-lg z-10">
+                                {{ $table['orders_count'] }}
+                            </div>
+                        @endif
+
+                        {{-- Número de Mesa --}}
+                        <div class="text-center mb-3">
+                            <div class="text-6xl font-black 
+                                @if($table['status'] === 'available')
+                                    text-gray-900 dark:text-white
+                                @elseif($table['status'] === 'occupied')
+                                    text-yellow-400
+                                @else
+                                    text-black
+                                @endif
+                            ">
+                                {{ $table['number'] }}
+                            </div>
+                        </div>
+
+                        {{-- Capacidad --}}
+                        <div class="text-center mb-3">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-bold
+                                @if($table['status'] === 'available')
+                                    bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300
+                                @elseif($table['status'] === 'occupied')
+                                    bg-yellow-400/20 text-yellow-400
+                                @else
+                                    bg-black/20 text-black
+                                @endif
+                            ">
+                                <x-heroicon-o-user-group class="w-4 h-4" />
+                                <span>{{ $table['capacity'] }}</span>
+                            </div>
+                        </div>
+
+                        {{-- Estado --}}
+                        <div class="text-center mb-2">
+                            @if($table['status'] === 'available')
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-black bg-yellow-400 text-black">
+                                    <x-heroicon-o-check-circle class="w-4 h-4" />
+                                    DISPONIBLE
+                                </span>
+                            @elseif($table['status'] === 'occupied')
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-black bg-yellow-400 text-black animate-pulse">
+                                    <x-heroicon-o-fire class="w-4 h-4" />
+                                    OCUPADA
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-black bg-black text-yellow-400">
+                                    <x-heroicon-o-clock class="w-4 h-4" />
+                                    RESERVADA
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- Info Adicional (solo ocupadas) --}}
+                        @if($table['status'] === 'occupied' && $table['orders_count'] > 0)
+                            <div class="mt-3 pt-3 border-t-2 border-yellow-400/30 text-center space-y-1">
+                                @if($table['elapsed_time'])
+                                    <div class="text-xs font-bold text-yellow-400 flex items-center justify-center gap-1">
+                                        <x-heroicon-o-clock class="w-4 h-4" />
+                                        {{ $table['elapsed_time'] }}
+                                    </div>
+                                @endif
+                                @if($table['total_amount'] > 0)
+                                    <div class="text-xl font-black text-yellow-400">
+                                        ${{ number_format($table['total_amount'], 0, ',', '.') }}
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endforeach
+
+    {{-- Mensaje si no hay mesas --}}
+    @if(count($tablesByLocation) === 0)
+        <div class="flex flex-col items-center justify-center py-20 text-center">
+            <div class="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-3xl p-12 mb-6 shadow-2xl">
+                <x-heroicon-o-map class="w-24 h-24 text-gray-400 mx-auto" />
+            </div>
+            <h3 class="text-3xl font-black text-gray-900 dark:text-white mb-3">
+                No hay mesas registradas
+            </h3>
+            <p class="text-gray-500 dark:text-gray-400 text-lg max-w-md">
+                Crea mesas desde el módulo de configuración para empezar a gestionar tu salón.
+            </p>
+        </div>
+    @endif
+
+    {{-- MODAL DE DETALLES --}}
+    <x-filament::modal id="table-details" width="4xl">
+        @if($this->selectedTable)
+            @php $table = $this->selectedTable; @endphp
+
+            {{-- Encabezado del Modal --}}
+            <x-slot name="heading">
+                <div class="flex items-center gap-4">
+                    <div class="
+                        w-20 h-20 rounded-xl flex items-center justify-center font-black text-3xl shadow-lg border-4
+                        @if($table['status'] === 'available')
+                            bg-white dark:bg-gray-800 border-yellow-400 text-gray-900 dark:text-white
+                        @elseif($table['status'] === 'occupied')
+                            bg-black border-yellow-400 text-yellow-400
+                        @else
+                            bg-yellow-400 border-black text-black
+                        @endif
+                    ">
+                        {{ $table['number'] }}
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-3xl font-black text-gray-900 dark:text-white">Mesa #{{ $table['number'] }}</h3>
+                        <p class="text-lg text-gray-600 dark:text-gray-400 font-semibold">
+                            📍 {{ $table['location'] }} • 👥 {{ $table['capacity'] }} personas
+                        </p>
+                    </div>
+                    <div>
+                        @if($table['status'] === 'available')
+                            <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black bg-yellow-400 text-black shadow-lg border-2 border-black">
+                                <x-heroicon-o-check-circle class="w-6 h-6" />
+                                DISPONIBLE
+                            </span>
+                        @elseif($table['status'] === 'occupied')
+                            <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black bg-black text-yellow-400 shadow-lg border-2 border-yellow-400 animate-pulse">
+                                <x-heroicon-o-fire class="w-6 h-6" />
+                                OCUPADA
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black bg-yellow-400 text-black shadow-lg border-2 border-black">
+                                <x-heroicon-o-clock class="w-6 h-6" />
+                                RESERVADA
+                            </span>
+                        @endif
+                    </div>
+                </div>
+            </x-slot>
+
+            {{-- Contenido del Modal --}}
+            <div class="space-y-6">
+                {{-- Pedidos Activos --}}
+                @if(count($table['orders']) > 0)
+                    <div>
+                        <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-4 flex items-center gap-3">
+                            <div class="bg-yellow-400 rounded-xl p-2">
+                                <x-heroicon-o-shopping-bag class="w-6 h-6 text-black" />
+                            </div>
+                            Pedidos Activos ({{ count($table['orders']) }})
+                        </h4>
+                        
+                        <div class="space-y-4">
+                            @foreach($table['orders'] as $order)
+                                <div class="bg-white dark:bg-gray-800 border-4 border-yellow-400 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all">
+                                    {{-- Header del Pedido --}}
+                                    <div class="flex justify-between items-center mb-4 pb-4 border-b-2 border-yellow-400">
+                                        <div class="flex items-center gap-3">
+                                            <div class="bg-black text-yellow-400 rounded-lg px-4 py-2 text-xl font-black border-2 border-yellow-400">
+                                                #{{ $order['id'] }}
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 font-bold">{{ $order['created_at'] }}</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-500">{{ $order['created_time'] }}</p>
+                                            </div>
+                                        </div>
+                                        <span class="px-4 py-2 text-sm font-black rounded-lg
+                                            {{ match($order['status']) {
+                                                'pending' => 'bg-yellow-400 text-black border-2 border-black animate-pulse',
+                                                'processing' => 'bg-black text-yellow-400 border-2 border-yellow-400',
+                                                'ready' => 'bg-yellow-400 text-black border-2 border-black',
+                                                default => 'bg-gray-300 text-gray-700'
+                                            } }}">
+                                            {{ match($order['status']) {
+                                                'pending' => '📋 PENDIENTE',
+                                                'processing' => '🔥 EN COCINA',
+                                                'ready' => '✓ LISTO',
+                                                default => strtoupper($order['status'])
+                                            } }}
+                                        </span>
+                                    </div>
+
+                                    {{-- Productos --}}
+                                    <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-4 space-y-2 border-2 border-gray-200 dark:border-gray-700">
+                                        @foreach($order['products'] as $product)
+                                            <div class="flex justify-between items-center p-2 hover:bg-yellow-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                                                <span class="text-base font-bold text-gray-900 dark:text-white">
+                                                    <span class="inline-flex items-center justify-center w-8 h-8 bg-yellow-400 text-black rounded-lg text-sm font-black mr-2">{{ $product['quantity'] }}</span>
+                                                    {{ $product['name'] }}
+                                                </span>
+                                                <span class="text-lg font-black text-gray-700 dark:text-gray-300">
+                                                    ${{ number_format($product['price'] * $product['quantity'], 0, ',', '.') }}
+                                                </span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                    {{-- Total del Pedido --}}
+                                    <div class="flex justify-between items-center pt-4 border-t-2 border-yellow-400">
+                                        <span class="text-xl font-black text-gray-900 dark:text-white">Subtotal</span>
+                                        <span class="text-3xl font-black text-yellow-500">
+                                            ${{ number_format($order['total'], 0, ',', '.') }}
+                                        </span>
+                                    </div>
+
+                                    {{-- Botón Ver/Editar --}}
+                                    <button 
+                                        wire:click="editOrder({{ $order['id'] }})"
+                                        class="mt-4 w-full bg-black hover:bg-gray-800 text-yellow-400 font-black py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-2 border-yellow-400 flex items-center justify-center gap-2">
+                                        <x-heroicon-o-pencil-square class="w-6 h-6" />
+                                        Editar Pedido
+                                    </button>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        {{-- Total General de la Mesa --}}
+                        <div class="mt-6 bg-black text-yellow-400 rounded-xl p-8 shadow-lg border-4 border-yellow-400">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="text-lg font-bold mb-1">TOTAL MESA</p>
+                                    <p class="text-sm opacity-75">{{ count($table['orders']) }} {{ count($table['orders']) === 1 ? 'pedido' : 'pedidos' }}</p>
+                                </div>
+                                <span class="text-6xl font-black">
+                                    ${{ number_format($table['total_amount'], 0, ',', '.') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border-4 border-dashed border-yellow-400">
+                        <div class="bg-yellow-400 rounded-full p-8 inline-block mb-4">
+                            <x-heroicon-o-inbox class="w-20 h-20 text-black" />
+                        </div>
+                        <h4 class="text-2xl font-black text-gray-900 dark:text-white mb-2">Mesa sin pedidos</h4>
+                        <p class="text-gray-600 dark:text-gray-400 text-lg">Esta mesa está lista para recibir clientes</p>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Botones de Acción --}}
+            <x-slot name="footerActions">
+                <div class="flex flex-col md:flex-row gap-4 w-full">
+                    {{-- Agregar Pedido (SIEMPRE VISIBLE) --}}
+                    <button
+                        wire:click="createOrderForTable"
+                        class="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-black py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-4 border-black text-xl flex items-center justify-center gap-2">
+                        <x-heroicon-o-plus-circle class="w-7 h-7" />
+                        ➕ Agregar Pedido
+                    </button>
+
+                    {{-- Cobrar (solo si hay pedidos) --}}
+                    @if(count($table['orders']) > 0)
+                        <button
+                            wire:click="$dispatch('open-modal', { id: 'cobrar-mesa-{{ $table['id'] }}' })"
+                            class="flex-1 bg-black hover:bg-gray-800 text-yellow-400 font-black py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-4 border-yellow-400 text-xl flex items-center justify-center gap-2">
+                            <x-heroicon-o-currency-dollar class="w-7 h-7" />
+                            💰 Cobrar Mesa
+                        </button>
+
+                        {{-- Liberar Mesa --}}
+                        <button
+                            wire:click="freeTable({{ $table['id'] }})"
+                            wire:confirm="¿Liberar la mesa {{ $table['number'] }}? Asegúrate de que todos los pagos estén completos."
+                            class="flex-1 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-black dark:text-white font-black py-4 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all border-4 border-black dark:border-yellow-400 text-xl flex items-center justify-center gap-2">
+                            <x-heroicon-o-arrow-right-start-on-rectangle class="w-7 h-7" />
+                            🔓 Liberar Mesa
+                        </button>
+                    @endif
+                </div>
+            </x-slot>
+        @endif
+    </x-filament::modal>
+</x-filament-panels::page>

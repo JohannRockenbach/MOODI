@@ -19,6 +19,9 @@ class Table extends Model
         //Mesero
         'waiter_id',
         'restaurant_id',
+        // Coordenadas para el floor plan
+        'pos_x',
+        'pos_y',
     ];
 
     /*

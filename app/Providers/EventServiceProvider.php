@@ -23,6 +23,7 @@ class EventServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Models\Order::observe(\App\Observers\OrderObserver::class);
+        \App\Models\Reservation::observe(\App\Observers\ReservationObserver::class);
     }
 
     /**

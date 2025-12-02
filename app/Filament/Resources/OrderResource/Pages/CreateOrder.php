@@ -7,15 +7,102 @@ use App\Models\Product;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Log;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class CreateOrder extends CreateRecord
 {
     protected static string $resource = OrderResource::class;
     
+    // 🔒 Propiedad pública para saber si viene del mapa (persiste en Livewire)
+    public bool $isLockedFromMap = false;
+    public ?int $lockedTableId = null;
+    
     // Redirigir a la lista después de crear
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+
+    /**
+     * Montar el componente con datos iniciales
+     */
+    public function mount(): void
+    {
+        parent::mount();
+        
+        // Preparar datos iniciales
+        $initialData = [];
+        
+        // Auto-completar mesa desde query string
+        if (request()->has('table_id')) {
+            $tableId = (int) request()->get('table_id');
+            if ($tableId > 0) {
+                // 🔒 Marcar que viene del mapa (esta propiedad persiste en Livewire)
+                $this->isLockedFromMap = true;
+                $this->lockedTableId = $tableId;
+                
+                // Usar campos con prefijo _locked_ cuando viene del mapa
+                $initialData['_locked_table_id'] = $tableId;
+                $initialData['_locked_type'] = 'salon';
+            }
+        }
+
+        // Auto-completar mozo (usuario autenticado)
+        if (Auth::check()) {
+            $initialData['waiter_id'] = Auth::id();
+        }
+
+        // Estado por defecto
+        if (!isset($initialData['status'])) {
+            $initialData['status'] = 'pending';
+        }
+        
+        // Llenar el formulario con los datos
+        if (!empty($initialData)) {
+            $this->form->fill($initialData);
+        }
+    }
+    
+    /**
+     * Mutate data antes de guardar
+     */
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // SIEMPRE asegurar restaurant_id
+        $data['restaurant_id'] = 1;
+        
+        // 🔒 PROTECCIÓN: Mapear campos bloqueados (_locked_*) a campos reales
+        if (isset($data['_locked_type'])) {
+            $data['type'] = $data['_locked_type'];
+            unset($data['_locked_type']); // Limpiar el campo temporal
+            Log::info("🔒 Mapeando _locked_type -> type: {$data['type']}");
+        }
+        
+        if (isset($data['_locked_table_id'])) {
+            $data['table_id'] = $data['_locked_table_id'];
+            unset($data['_locked_table_id']); // Limpiar el campo temporal
+            Log::info("🔒 Mapeando _locked_table_id -> table_id: {$data['table_id']}");
+        }
+        
+        // 🔒 DOBLE PROTECCIÓN: Si viene del mapa en la URL, FORZAR valores
+        if (request()->has('table_id')) {
+            $tableIdFromUrl = (int) request()->get('table_id');
+            $data['type'] = 'salon';
+            $data['table_id'] = $tableIdFromUrl;
+            Log::info("🔒🔒 FORZADO desde URL: type=salon, table_id={$tableIdFromUrl}");
+        }
+        
+        // Auto-asignar mozo si no está presente
+        if (Auth::check() && empty($data['waiter_id'])) {
+            $data['waiter_id'] = Auth::id();
+        }
+        
+        // Estado por defecto
+        if (empty($data['status'])) {
+            $data['status'] = 'pending';
+        }
+        
+        return $data;
     }
 
     /**
@@ -76,5 +163,21 @@ class CreateOrder extends CreateRecord
         }
 
         Log::info('✅ Validación de stock completada. Todos los productos tienen stock suficiente.');
+    }
+    
+    /**
+     * Método público para que el formulario verifique si está bloqueado
+     */
+    public function isFromTableMap(): bool
+    {
+        return $this->isLockedFromMap;
+    }
+    
+    /**
+     * Obtener el ID de la mesa bloqueada
+     */
+    public function getLockedTableId(): ?int
+    {
+        return $this->lockedTableId;
     }
 }

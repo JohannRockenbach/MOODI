@@ -41,6 +41,7 @@ class CheckStockExpiry extends Command
         $this->info('🔍 Buscando lotes próximos a vencer (≤ 3 días)...');
 
         // Lista de ingredientes a ignorar (insumos base sin potencial de promo directa)
+        // LISTA NEGRA AMPLIADA
         $ignoredIngredients = [
             'Harina',
             'Levadura',
@@ -52,6 +53,8 @@ class CheckStockExpiry extends Command
             'Aceite de Oliva',
             'Vinagre',
             'Pimienta',
+            'Huevo',        // 🚫 Huevos crudos no se promocionan solos
+            'Huevos',
         ];
 
         // Buscar lotes que vencen en 3 días o menos y tienen stock
@@ -140,13 +143,49 @@ class CheckStockExpiry extends Command
         // ========================================
         // Estrategia de Selección Inteligente
         // ========================================
-        // Priorizar hamburguesas sobre otros productos
-        $burgers = $recommendedProducts->filter(function ($product) {
-            return $product->category && $product->category->name === 'Hamburguesas';
-        });
+        $this->line('');
+        $this->info('🧠 Analizando estrategia óptima...');
+        
+        // Caso especial: Si es QUESO CHEDDAR, buscar productos con MUCHO queso
+        if (stripos($criticalIngredient->name, 'Queso') !== false || 
+            stripos($criticalIngredient->name, 'Cheddar') !== false) {
+            
+            $this->info('   🧀 Detectado QUESO → Buscando productos con alto uso de queso...');
+            
+            // Buscar productos que usen MUCHO queso (cantidad alta en receta)
+            $cheeseProducts = $recommendedProducts->map(function ($product) use ($criticalIngredient) {
+                $ingredientInRecipe = $product->recipe->ingredients
+                    ->where('id', $criticalIngredient->id)
+                    ->first();
+                
+                $quantity = $ingredientInRecipe ? ($ingredientInRecipe->pivot->required_amount ?? 0) : 0;
+                
+                return [
+                    'product' => $product,
+                    'cheese_amount' => $quantity,
+                ];
+            })
+            ->filter(fn($item) => $item['cheese_amount'] > 0)
+            ->sortByDesc('cheese_amount'); // Ordenar por cantidad de queso (mayor primero)
+            
+            if ($cheeseProducts->isNotEmpty()) {
+                $topCheeseProduct = $cheeseProducts->first();
+                $recommendedProduct = $topCheeseProduct['product'];
+                $cheeseAmount = $topCheeseProduct['cheese_amount'];
+                
+                $this->info("   ✅ Producto con MÁS queso: {$recommendedProduct->name} (usa {$cheeseAmount} unidades)");
+            }
+        }
+        
+        // Estrategia general: Priorizar hamburguesas sobre otros productos
+        if (!isset($recommendedProduct)) {
+            $burgers = $recommendedProducts->filter(function ($product) {
+                return $product->category && $product->category->name === 'Hamburguesas';
+            });
 
-        // Si hay hamburguesas disponibles, elegir la primera; si no, usar cualquier producto
-        $recommendedProduct = $burgers->isNotEmpty() ? $burgers->first() : $recommendedProducts->first();
+            // Si hay hamburguesas disponibles, elegir la primera; si no, usar cualquier producto
+            $recommendedProduct = $burgers->isNotEmpty() ? $burgers->first() : $recommendedProducts->first();
+        }
 
         $this->line('');
         $this->info("💡 Producto Recomendado: {$recommendedProduct->name}");
@@ -174,10 +213,14 @@ class CheckStockExpiry extends Command
         $body = "Tienes **{$criticalRisk['total_quantity']} unidades** de {$criticalIngredient->name} que vencen en **{$daysUntilExpiry} día(s)**. "
             . "El sistema sugiere lanzar una promo de **{$recommendedProduct->name}** para consumirlo rápidamente y evitar pérdidas.";
 
-        // URL de campaña con datos pre-llenados
+        // URL de campaña con datos pre-llenados + DESCUENTO FIJO
         $campaignUrl = SendCampaign::getUrl([
+            'product_id' => $recommendedProduct->id,
             'subject' => $title,
             'body' => $body . "\n\n🎁 **Oferta Especial**: {$recommendedProduct->name} - ¡Aprovecha antes que se acabe!\n\nEsta promo ayuda a reducir desperdicio y maximizar ganancias.",
+            'discount_type' => 'fixed',
+            'discount_value' => 500,
+            'coupon_code' => 'NOPIERDO',
         ]);
 
         Notification::make()

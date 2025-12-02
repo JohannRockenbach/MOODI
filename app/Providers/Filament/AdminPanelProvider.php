@@ -12,6 +12,9 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use Filament\Navigation\NavigationGroup;
+use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\TableMap;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -40,6 +43,16 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
+            ->navigationGroups([
+                NavigationGroup::make('Operaciones')
+                    ->label('Operaciones'),
+                NavigationGroup::make('Inventario')
+                    ->label('Inventario'),
+                NavigationGroup::make('Clientes')
+                    ->label('Clientes'),
+                NavigationGroup::make('Configuración')
+                    ->label('Configuración'),
+            ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 // Widgets del sistema
@@ -47,9 +60,9 @@ class AdminPanelProvider extends PanelProvider
                 // Widgets\FilamentInfoWidget::class,
                 
                 // Widgets personalizados del Dashboard
-                \App\Filament\Widgets\StockNotificationsWidget::class, // Notificaciones de stock (primero)
-                \App\Filament\Widgets\MarketingOverview::class, // Resumen de Automatizaciones de Marketing
-                \App\Filament\Widgets\WeatherOverview::class, // Estado del Clima
+                \App\Filament\Widgets\WeatherOverview::class, // Estado del Clima (2 tarjetas)
+                \App\Filament\Widgets\StockNotificationsWidget::class, // Notificaciones de stock
+                \App\Filament\Widgets\MarketingOverview::class, // Anti-Desperdicio + Fidelización
                 \App\Filament\Widgets\StatsOverview::class,
                 \App\Filament\Widgets\SalesChart::class,
                 \App\Filament\Widgets\LatestOrders::class,
@@ -65,6 +78,7 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                \App\Http\Middleware\RedirectMozoToTableMap::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),

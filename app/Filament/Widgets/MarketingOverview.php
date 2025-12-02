@@ -4,9 +4,12 @@ namespace App\Filament\Widgets;
 
 use App\Models\Cliente;
 use App\Models\IngredientBatch;
-use App\Services\WeatherService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
+use Filament\Actions\Action;
+use Illuminate\Support\Facades\Artisan;
+use Filament\Notifications\Notification;
 
 class MarketingOverview extends BaseWidget
 {
@@ -21,62 +24,36 @@ class MarketingOverview extends BaseWidget
     protected static ?string $pollingInterval = '300s';
 
     /**
-     * Obtener las estadísticas de las 3 automatizaciones
+     * Obtener las estadísticas de las 2 automatizaciones + botón de acción
      */
     protected function getStats(): array
     {
         return [
-            $this->getWeatherStat(),
+            $this->getActionButton(),
             $this->getWasteStat(),
             $this->getLoyaltyStat(),
         ];
     }
 
     /**
-     * Tarjeta 1: Estado del Clima y Oportunidad de Promo
+     * Tarjeta de Acción: Ejecutar Análisis Manual
      */
-    protected function getWeatherStat(): Stat
+    protected function getActionButton(): Stat
     {
-        $weatherService = app(WeatherService::class);
-        $weather = $weatherService->getCurrentWeather();
-
-        if (!$weather) {
-            return Stat::make('Clima', 'No disponible')
-                ->description('API de clima no responde')
-                ->icon('heroicon-o-cloud')
-                ->color('gray');
-        }
-
-        $temperature = $weather['temperature'] ?? 0;
-        $isRaining = $weatherService->isRaining($weather);
-
-        // Determinar el tipo de oportunidad
-        if ($isRaining) {
-            $opportunity = '🌧️ Combo Netflix';
-            $color = 'info';
-            $description = 'Lluvia detectada - Promo activa';
-        } elseif ($temperature > 28) {
-            $opportunity = '☀️ After Office';
-            $color = 'warning';
-            $description = 'Calor extremo - Promo activa';
-        } else {
-            $opportunity = '🌤️ Menú Ejecutivo';
-            $color = 'gray';
-            $description = 'Clima estándar';
-        }
-
-        return Stat::make('Clima', "{$temperature}°C")
-            ->description($description)
-            ->descriptionIcon($isRaining ? 'heroicon-o-cloud-rain' : ($temperature > 28 ? 'heroicon-o-sun' : 'heroicon-o-cloud'))
-            ->chart([15, 18, 22, 20, 25, $temperature]) // Gráfico de tendencia
-            ->color($color)
+        return Stat::make('Análisis Manual', '🚀 Ejecutar Ahora')
+            ->description('Click aquí para ejecutar los 3 análisis de mercado')
+            ->descriptionIcon('heroicon-o-cpu-chip')
+            ->color('primary')
+            ->icon('heroicon-o-bolt')
             ->extraAttributes([
-                'class' => 'cursor-pointer',
+                'wire:click' => 'runMarketAnalysis',
+                'class' => 'cursor-pointer hover:shadow-lg transition-shadow duration-200',
+                'style' => 'cursor: pointer;',
             ]);
     }
 
     /**
-     * Tarjeta 2: Anti-Desperdicio (Ingredientes en Riesgo)
+     * Tarjeta 1: Anti-Desperdicio (Ingredientes en Riesgo)
      */
     protected function getWasteStat(): Stat
     {
@@ -166,5 +143,36 @@ class MarketingOverview extends BaseWidget
             ->chart([$birthdaysToday, $vipClients, $birthdaysToday + $vipClients, 0, $birthdaysToday, $vipClients])
             ->color('success')
             ->icon('heroicon-o-heart');
+    }
+
+    /**
+     * Ejecutar análisis de mercado manualmente
+     */
+    public function runMarketAnalysis(): void
+    {
+        try {
+            // Ejecutar comandos de automatización
+            Artisan::call('promo:check-weather');
+            Artisan::call('stock:check-expiry');
+            Artisan::call('loyalty:check-promo');
+
+            // Notificación de éxito
+            Notification::make()
+                ->title('✅ Análisis completado exitosamente')
+                ->body('Los tres análisis de mercado se ejecutaron correctamente. Revise sus notificaciones para ver las recomendaciones.')
+                ->success()
+                ->duration(8000)
+                ->send();
+
+            // Refrescar el widget para mostrar datos actualizados
+            $this->dispatch('$refresh');
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('❌ Error al ejecutar análisis')
+                ->body("Ocurrió un error: {$e->getMessage()}")
+                ->danger()
+                ->persistent()
+                ->send();
+        }
     }
 }

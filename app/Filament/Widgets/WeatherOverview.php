@@ -6,66 +6,111 @@ use App\Services\WeatherService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class WeatherOverview extends BaseWidget
 {
     /**
-     * Intervalo de refresco del widget (en segundos)
-     * Null = no auto-refresh
+     * Orden del widget en el dashboard
      */
-    protected static ?string $pollingInterval = null;
+    protected static ?int $sort = 1;
 
+    /**
+     * Intervalo de refresco del widget (en segundos)
+     * Cada 5 minutos (300 segundos)
+     */
+    protected static ?string $pollingInterval = '300s';
+
+    /**
+     * Obtener las estadísticas del clima
+     */
     protected function getStats(): array
     {
-        // Obtener instancia del servicio
-        $weatherService = app(WeatherService::class);
+        try {
+            // Usar WeatherService con app() en lugar de constructor para evitar errores de Livewire
+            $weatherService = app(WeatherService::class);
+            $weather = $weatherService->getCurrentWeather();
 
-        // Cachear datos del clima por 15 minutos (900 segundos)
-        // Esto evita llamar a la API en cada refresh
-        $data = Cache::remember('weather_apostoles', 900, function () use ($weatherService) {
-            return $weatherService->getCurrentWeather();
-        });
+            // Si la API no responde
+            if (!$weather) {
+                Log::warning('Weather API no disponible en el widget');
+                return [
+                    Stat::make('Clima', 'API no responde')
+                        ->description('⚠️ Verifica tu conexión a internet o intenta más tarde')
+                        ->descriptionIcon('heroicon-o-exclamation-triangle')
+                        ->color('warning'),
+                ];
+            }
 
-        // Si no hay datos, mostrar tarjetas con error
-        if (!$data) {
+            // Extraer datos del objeto 'current'
+            $current = $weather['current'] ?? null;
+            
+            if (!$current) {
+                Log::warning('Weather API devolvió datos incompletos', ['weather' => $weather]);
+                return [
+                    Stat::make('Clima', 'Datos incompletos')
+                        ->description('⚠️ La API devolvió una respuesta inesperada')
+                        ->descriptionIcon('heroicon-o-exclamation-triangle')
+                        ->color('warning'),
+                ];
+            }
+
+            $temperature = $current['temperature_2m'] ?? null;
+            $isRaining = $weatherService->isRaining($weather);
+
+            // Si no hay temperatura válida
+            if ($temperature === null) {
+                Log::warning('Weather API sin temperatura', ['current' => $current]);
+                return [
+                    Stat::make('Clima', 'Sin temperatura')
+                        ->description('⚠️ No se pudo obtener la temperatura actual')
+                        ->descriptionIcon('heroicon-o-exclamation-triangle')
+                        ->color('warning'),
+                ];
+            }
+
+            // Determinar el color según la temperatura
+            if ($temperature > 30) {
+                $tempColor = 'danger';
+                $tempEmoji = '🔥';
+                $tempText = 'Calor extremo';
+            } elseif ($temperature > 25) {
+                $tempColor = 'warning';
+                $tempEmoji = '☀️';
+                $tempText = 'Cálido';
+            } elseif ($temperature > 15) {
+                $tempColor = 'success';
+                $tempEmoji = '🌤️';
+                $tempText = 'Agradable';
+            } else {
+                $tempColor = 'info';
+                $tempEmoji = '❄️';
+                $tempText = 'Fresco';
+            }
+
+            // Condición climática
+            $condition = $isRaining ? '🌧️ Lluvia detectada' : '☀️ Sin precipitaciones';
+            
+            // Tarjeta ÚNICA consolidada: Temperatura + Condición
             return [
-                Stat::make('Temperatura Actual', 'N/A')
-                    ->description('Error al obtener datos')
-                    ->icon('heroicon-o-exclamation-triangle')
+                Stat::make('Clima en Apóstoles', round($temperature) . '°C')
+                    ->description($tempEmoji . ' ' . $tempText . ' • ' . $condition)
+                    ->descriptionIcon($isRaining ? 'heroicon-o-cloud' : 'heroicon-o-sun')
+                    ->color($tempColor)
+                    ->icon('heroicon-o-sun'),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error inesperado en WeatherOverview widget', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return [
+                Stat::make('Error', 'Error del sistema')
+                    ->description('❌ ' . $e->getMessage())
+                    ->descriptionIcon('heroicon-o-x-circle')
                     ->color('danger'),
-                
-                Stat::make('Condición', 'Sin datos')
-                    ->description('Intenta recargar en unos minutos')
-                    ->color('warning'),
             ];
         }
-
-        // Extraer datos del clima
-        $temp = $data['current']['temperature_2m'] ?? 0;
-        $raining = $weatherService->isRaining($data);
-
-        // Determinar icono según temperatura
-        $icon = $temp > 20 ? 'heroicon-o-sun' : 'heroicon-o-cloud';
-
-        // Determinar color según temperatura
-        $color = match (true) {
-            $temp > 30 => 'danger',
-            $temp >= 20 => 'warning',
-            default => 'info',
-        };
-
-        return [
-            // Tarjeta 1: Temperatura
-            Stat::make('Temperatura Actual', "{$temp} °C")
-                ->icon($icon)
-                ->color($color)
-                ->description('Apóstoles, Misiones'),
-
-            // Tarjeta 2: Condición de lluvia
-            Stat::make('Condición', $raining ? 'Lluvioso 🌧️' : 'Sin Lluvia ☀️')
-                ->color($raining ? 'primary' : 'success')
-                ->description('Datos de tiempo (Apóstoles)')
-                ->icon($raining ? 'heroicon-o-cloud-arrow-down' : 'heroicon-o-sun'),
-        ];
     }
 }

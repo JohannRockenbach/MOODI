@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
         // Ejecutamos solo el nuevo seeder de hamburguesería
         $this->call([
             BurgerMenuSeeder::class,
+            StaffSeeder::class, // Usuarios de prueba para Mozo y Cocina
+            TablePositionSeeder::class, // Mesas con posiciones para el floor plan
         ]);
     }
 }

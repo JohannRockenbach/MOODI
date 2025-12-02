@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use function __;
 
 class OrderResource extends Resource
@@ -72,7 +73,12 @@ class OrderResource extends Resource
                         ])
                         ->columnSpan(1),
 
-                    // Tipo de Pedido (PRIMERO para que sea reactivo)
+                    // ==========================================
+                    // ESTRATEGIA: Cuando viene del mapa, NO mostrar Select editables
+                    // Usamos propiedades de Livewire que persisten durante toda la sesión
+                    // ==========================================
+                    
+                    // TIPO: Select editable (solo cuando NO viene del mapa)
                     Forms\Components\Select::make('type')
                         ->label('Tipo de Pedido')
                         ->options([
@@ -82,27 +88,118 @@ class OrderResource extends Resource
                         ])
                         ->default('salon')
                         ->required()
-                        ->live()
+                        ->live(onBlur: false, debounce: 0)
                         ->native(false)
+                        ->visible(function ($operation, $livewire) {
+                            // Solo visible si NO es create O NO viene del mapa
+                            if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
+                                return !$livewire->isFromTableMap();
+                            }
+                            return $operation !== 'create'; // En edit, siempre visible
+                        })
+                        ->helperText('Selecciona el tipo de pedido')
                         ->columnSpan(1),
+                    
+                    // TIPO: Campo bloqueado visual (solo cuando viene del mapa en CREATE)
+                    Forms\Components\Placeholder::make('type_locked_display')
+                        ->label('Tipo de Pedido')
+                        ->content(function () {
+                            return '🔒 Salón (Mesa seleccionada desde el mapa)';
+                        })
+                        ->visible(function ($operation, $livewire) {
+                            if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
+                                return $livewire->isFromTableMap();
+                            }
+                            return false;
+                        })
+                        ->columnSpan(1),
+                    
+                    // TIPO: Hidden field para enviar el valor al backend (solo en CREATE desde mapa)
+                    Forms\Components\Hidden::make('_locked_type')
+                        ->default('salon')
+                        ->visible(function ($operation, $livewire) {
+                            if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
+                                return $livewire->isFromTableMap();
+                            }
+                            return false;
+                        }),
 
-                    // Mesa del Restaurante 1 (VISIBLE SOLO SI ES SALON)
+                    // MESA: Select editable (solo cuando es salón Y NO viene del mapa)
                     Forms\Components\Select::make('table_id')
                         ->label('Mesa')
                         ->relationship('table', 'number')
                         ->options(fn() => TableModel::where('restaurant_id', 1)->pluck('number', 'id'))
                         ->searchable()
-                        ->required(fn (Forms\Get $get): bool => $get('type') === 'salon')
-                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'salon')
+                        ->required(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'salon')
+                        ->visible(function (Forms\Get $get, $operation, $livewire): bool {
+                            $type = $get('type') ?? $get('_locked_type');
+                            
+                            // Si no es salón, no mostrar
+                            if ($type !== 'salon') {
+                                return false;
+                            }
+                            
+                            // En create o edit, solo mostrar si NO viene del mapa
+                            if (method_exists($livewire, 'isFromTableMap')) {
+                                return !$livewire->isFromTableMap();
+                            }
+                            
+                            // Por defecto visible
+                            return true;
+                        })
                         ->helperText('Selecciona la mesa donde se realiza el pedido')
                         ->columnSpan(1),
+                    
+                    // MESA: Campo bloqueado visual (cuando viene del mapa en CREATE o EDIT)
+                    Forms\Components\Placeholder::make('table_locked_display')
+                        ->label('Mesa')
+                        ->content(function ($livewire) {
+                            if (method_exists($livewire, 'getLockedTableId')) {
+                                $tableId = $livewire->getLockedTableId();
+                                if ($tableId) {
+                                    $table = TableModel::find($tableId);
+                                    if ($table) {
+                                        return "🔒 Mesa #{$table->number} - {$table->location}";
+                                    }
+                                    return "🔒 Mesa #{$tableId}";
+                                }
+                            }
+                            return 'N/A';
+                        })
+                        ->visible(function ($operation, $livewire) {
+                            // Visible en CREATE o EDIT cuando viene del mapa
+                            if (method_exists($livewire, 'isFromTableMap')) {
+                                return $livewire->isFromTableMap();
+                            }
+                            return false;
+                        })
+                        ->columnSpan(1),
+                    
+                    // MESA: Hidden field con nombre único para enviar al backend
+                    Forms\Components\Hidden::make('_locked_table_id')
+                        ->default(function ($livewire) {
+                            if (method_exists($livewire, 'getLockedTableId')) {
+                                return $livewire->getLockedTableId();
+                            }
+                            return null;
+                        })
+                        ->visible(function ($operation, $livewire) {
+                            if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
+                                return $livewire->isFromTableMap();
+                            }
+                            return false;
+                        }),
 
                     // Dirección de Delivery (VISIBLE SOLO SI ES DELIVERY)
                     Forms\Components\TextInput::make('delivery_address')
                         ->label('Dirección de Entrega')
                         ->placeholder('Ej: Calle 123, Barrio X')
-                        ->required(fn (Forms\Get $get): bool => $get('type') === 'delivery')
-                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'delivery')
+                        ->required(fn (Forms\Get $get): bool => 
+                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        )
+                        ->visible(fn (Forms\Get $get): bool => 
+                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        )
                         ->helperText('Dirección completa para el delivery')
                         ->columnSpan(1),
 
@@ -111,8 +208,12 @@ class OrderResource extends Resource
                         ->label('Teléfono')
                         ->placeholder('Ej: 0351-1234567')
                         ->tel()
-                        ->required(fn (Forms\Get $get): bool => $get('type') === 'delivery')
-                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'delivery')
+                        ->required(fn (Forms\Get $get): bool => 
+                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        )
+                        ->visible(fn (Forms\Get $get): bool => 
+                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        )
                         ->helperText('Teléfono de contacto para el delivery')
                         ->columnSpan(1),
 
@@ -120,8 +221,12 @@ class OrderResource extends Resource
                     Forms\Components\TextInput::make('customer_name')
                         ->label('Nombre del Cliente')
                         ->placeholder('Ej: Juan Pérez')
-                        ->required(fn (Forms\Get $get): bool => in_array($get('type'), ['delivery', 'para_llevar']))
-                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['delivery', 'para_llevar']))
+                        ->required(fn (Forms\Get $get): bool => 
+                            in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
+                        )
+                        ->visible(fn (Forms\Get $get): bool => 
+                            in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
+                        )
                         ->helperText('Nombre de quien retira/recibe el pedido')
                         ->columnSpan(1),
 
@@ -132,7 +237,14 @@ class OrderResource extends Resource
                         ->searchable()
                         ->preload()
                         ->required()
-                        ->helperText('Mozo que tomó el pedido')
+                        ->afterStateHydrated(function ($state, $set) {
+                            if (Auth::check() && !$state) {
+                                $set('waiter_id', Auth::id());
+                            }
+                        })
+                        ->disabled(fn ($operation) => $operation === 'create' && Auth::check())
+                        ->dehydrated()
+                        ->helperText(fn ($operation) => $operation === 'create' && Auth::check() ? '🔒 Auto-asignado: ' . Auth::user()->name : 'Mozo que tomó el pedido')
                         ->columnSpan(1),
 
                     // Estado del Pedido
@@ -266,20 +378,6 @@ class OrderResource extends Resource
                         ->itemLabel(fn (array $state): ?string => 
                             \App\Models\Product::find($state['product_id'] ?? null)?->name ?? 'Nuevo Producto'
                         )
-                        ->columnSpanFull(),
-
-                    // TOTAL DEL PEDIDO (DISPLAY EN TIEMPO REAL)
-                    Forms\Components\TextInput::make('total_display')
-                        ->label('💰 Total del Pedido')
-                        ->prefix('$')
-                        ->readOnly()
-                        ->dehydrated(false) // NO guardar en BD, solo para display
-                        ->default('0,00')
-                        ->extraAttributes([
-                            'class' => 'text-2xl font-bold',
-                            'style' => 'font-size: 1.5rem; font-weight: 900; color: #16a34a;',
-                        ])
-                        ->helperText('Este total se calcula automáticamente')
                         ->columnSpanFull(),
                 ])
                 ->collapsible(),
