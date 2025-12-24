@@ -831,11 +831,13 @@ class OrderResource extends Resource
                     ->modalSubmitActionLabel('Crear Pedido')
                     ->modalWidth('lg'),
                 
-                Tables\Actions\DeleteAction::make(),
+                // DeleteAction deshabilitado por integridad de datos
+                // Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // DeleteBulkAction deshabilitado por integridad de datos
+                    // Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

@@ -23,6 +23,11 @@ class Restaurant extends Model
         'cuit',
         'schedules',
         'contact_phone',
+        'marketing_settings',
+    ];
+
+    protected $casts = [
+        'marketing_settings' => 'array',
     ];
 
     /*

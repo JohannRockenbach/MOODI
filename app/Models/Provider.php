@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class Provider extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         //nombre_negocio
@@ -19,6 +21,20 @@ class Provider extends Model
         'email',
         'restaurant_id',
     ];
+    
+    /**
+     * Boot method para auto-asignar restaurant_id
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($provider) {
+            if (empty($provider->restaurant_id)) {
+                $provider->restaurant_id = Auth::user()?->restaurant_id ?? 1;
+            }
+        });
+    }
 
     /**
      * Un proveedor PERTENECE A un restaurante.

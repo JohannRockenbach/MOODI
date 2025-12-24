@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Caja;
 
 Route::get('/', function () {
@@ -29,7 +30,9 @@ Route::middleware('auth')->group(function () {
     
     // API endpoint for table map - update position
     Route::post('/admin/table-map/update-position', function (Illuminate\Http\Request $request) {
-        if (!auth()->user()->hasAnyRole(['super_admin'])) {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user || !$user->hasAnyRole(['super_admin'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
         

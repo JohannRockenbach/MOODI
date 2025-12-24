@@ -16,7 +16,10 @@ class RedirectMozoToTableMap
     public function handle(Request $request, Closure $next): Response
     {
         // Si el usuario está autenticado y tiene el rol "Mozo"
-        if (Auth::check() && Auth::user()->hasRole('Mozo')) {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        
+        if (Auth::check() && $user && $user->hasRole('Mozo')) {
             // Si está intentando acceder al dashboard, redirigir al mapa de mesas
             if ($request->is('admin') || $request->is('admin/') || $request->is('admin/dashboard')) {
                 return redirect(TableMap::getUrl());

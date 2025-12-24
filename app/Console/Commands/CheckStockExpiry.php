@@ -13,243 +13,148 @@ use Illuminate\Console\Command;
 
 class CheckStockExpiry extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'stock:check-expiry';
+    protected $description = 'Chef Inteligente: Detecta ingredientes por vencer y crea recetas temporales';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Detecta ingredientes próximos a vencer y sugiere productos para evitar desperdicio';
-
-    /**
-     * Execute the console command.
-     */
     public function handle(): int
     {
-        $this->info('♻️  Sistema Anti-Desperdicio - Analizando lotes...');
+        $this->info('👨‍🍳 Chef Inteligente - Analizando inventario...');
 
-        // ========================================
-        // Paso 1: Detectar Lotes en Riesgo
-        // ========================================
+        // Paso 1: Identificar Ingredientes Base
         $this->line('');
-        $this->info('🔍 Buscando lotes próximos a vencer (≤ 3 días)...');
+        $this->info('🔍 Buscando ingredientes base...');
+        
+        $panBase = Ingredient::where('name', 'like', '%Pan%')->first();
+        $carneBase = Ingredient::where('name', 'like', '%Medallón%')->orWhere('name', 'like', '%Carne%')->first();
+        
+        if (!$panBase || !$carneBase) {
+            $this->error('❌ No se encontraron ingredientes base (Pan y Carne).');
+            return Command::FAILURE;
+        }
+        
+        $this->info("   ✅ Pan base: {$panBase->name}");
+        $this->info("   ✅ Carne base: {$carneBase->name}");
 
-        // Lista de ingredientes a ignorar (insumos base sin potencial de promo directa)
-        // LISTA NEGRA AMPLIADA
+        // Paso 2: Detectar Ingredientes en Riesgo
+        $this->line('');
+        $this->info('⚠️ Detectando ingredientes críticos (≤ 5 días)...');
+        
         $ignoredIngredients = [
-            'Harina',
-            'Levadura',
-            'Sal',
-            'Azúcar',
-            'Agua',
-            'Aceite',
-            'Papas Congeladas',
-            'Aceite de Oliva',
-            'Vinagre',
-            'Pimienta',
-            'Huevo',        // 🚫 Huevos crudos no se promocionan solos
-            'Huevos',
+            'Harina', 'Levadura', 'Sal', 'Azúcar', 'Agua', 'Aceite',
+            'Papas Congeladas', 'Aceite de Oliva', 'Vinagre', 'Pimienta',
+            'Huevo', 'Huevos', $panBase->name, $carneBase->name,
         ];
 
-        // Buscar lotes que vencen en 3 días o menos y tienen stock
-        // Excluir ingredientes base que no generan promos directas
         $expiringBatches = IngredientBatch::where('quantity', '>', 0)
-            ->where('expiration_date', '<=', now()->addDays(3))
-            ->where('expiration_date', '>=', now()) // Solo futuros, no vencidos
+            ->where('expiration_date', '<=', now()->addDays(5))
+            ->where('expiration_date', '>=', now())
             ->whereHas('ingredient', fn($q) => $q->whereNotIn('name', $ignoredIngredients))
             ->with('ingredient')
             ->get();
 
         if ($expiringBatches->isEmpty()) {
-            $this->info('✅ No hay lotes en riesgo de vencimiento.');
-            $this->comment('💡 Todos los ingredientes están bajo control.');
+            $this->info('✅ No hay ingredientes en riesgo.');
             return Command::SUCCESS;
         }
 
-        $this->warn("⚠️  Se encontraron {$expiringBatches->count()} lote(s) en riesgo.");
-
-        // ========================================
-        // Paso 2: Agrupar y Analizar por Ingrediente
-        // ========================================
-        $this->line('');
-        $this->info('📊 Agrupando por ingrediente...');
-
-        // Agrupar lotes por ingrediente y sumar cantidades
-        $ingredientRisks = $expiringBatches->groupBy('ingredient_id')->map(function ($batches) {
-            $ingredient = $batches->first()->ingredient;
-            $totalQuantity = $batches->sum('quantity');
-            $nearestExpiry = $batches->min('expiration_date');
-
-            return [
-                'ingredient' => $ingredient,
-                'total_quantity' => $totalQuantity,
-                'nearest_expiry' => $nearestExpiry,
-                'batch_count' => $batches->count(),
-            ];
-        });
-
-        // Ordenar por cantidad total (mayor primero)
-        $ingredientRisks = $ingredientRisks->sortByDesc('total_quantity');
-
-        // Mostrar resumen
-        foreach ($ingredientRisks as $risk) {
-            $daysUntilExpiry = now()->diffInDays($risk['nearest_expiry']);
-            $this->line("   • {$risk['ingredient']->name}: {$risk['total_quantity']} unidades (vence en {$daysUntilExpiry} día(s))");
-        }
-
-        // Seleccionar el ingrediente más crítico (mayor cantidad)
-        $criticalRisk = $ingredientRisks->first();
-        $criticalIngredient = $criticalRisk['ingredient'];
-
-        $this->line('');
-        $this->warn("🎯 Ingrediente Crítico: {$criticalIngredient->name} ({$criticalRisk['total_quantity']} unidades)");
-
-        // ========================================
-        // Paso 3: Estrategia - Buscar Productos que Usen el Ingrediente
-        // ========================================
-        $this->line('');
-        $this->info('👨‍🍳 Chef Digital: Buscando productos que usen este ingrediente...');
-
-        // Buscar productos que tengan este ingrediente en su receta
-        $recommendedProducts = Product::whereHas('recipe.ingredients', function ($query) use ($criticalIngredient) {
-            $query->where('ingredients.id', $criticalIngredient->id);
-        })
-        ->with(['recipe.ingredients' => function ($query) use ($criticalIngredient) {
-            $query->where('ingredients.id', $criticalIngredient->id);
-        }])
-        ->with('category') // Cargar categoría para estrategia
-        ->get();
-
-        if ($recommendedProducts->isEmpty()) {
-            $this->warn('⚠️  No se encontraron productos que usen este ingrediente.');
-            $this->comment('💡 Considera crear una nueva receta o ajustar las existentes.');
-            return Command::SUCCESS;
-        }
-
-        $this->info("   ✅ Se encontraron {$recommendedProducts->count()} producto(s) que usan {$criticalIngredient->name}:");
-        foreach ($recommendedProducts as $product) {
-            $ingredientInRecipe = $product->recipe->ingredients->first();
-            $quantity = $ingredientInRecipe->pivot->required_amount ?? 0;
-            $categoryName = $product->category ? $product->category->name : 'Sin categoría';
-            $this->line("      → {$product->name} [{$categoryName}] (usa {$quantity} unidades por producto)");
-        }
-
-        // ========================================
-        // Estrategia de Selección Inteligente
-        // ========================================
-        $this->line('');
-        $this->info('🧠 Analizando estrategia óptima...');
-        
-        // Caso especial: Si es QUESO CHEDDAR, buscar productos con MUCHO queso
-        if (stripos($criticalIngredient->name, 'Queso') !== false || 
-            stripos($criticalIngredient->name, 'Cheddar') !== false) {
-            
-            $this->info('   🧀 Detectado QUESO → Buscando productos con alto uso de queso...');
-            
-            // Buscar productos que usen MUCHO queso (cantidad alta en receta)
-            $cheeseProducts = $recommendedProducts->map(function ($product) use ($criticalIngredient) {
-                $ingredientInRecipe = $product->recipe->ingredients
-                    ->where('id', $criticalIngredient->id)
-                    ->first();
-                
-                $quantity = $ingredientInRecipe ? ($ingredientInRecipe->pivot->required_amount ?? 0) : 0;
-                
+        $topRisks = $expiringBatches->groupBy('ingredient_id')
+            ->map(function ($batches) {
+                $ingredient = $batches->first()->ingredient;
                 return [
-                    'product' => $product,
-                    'cheese_amount' => $quantity,
+                    'ingredient' => $ingredient,
+                    'total_quantity' => $batches->sum('quantity'),
+                    'unit_cost' => $ingredient->unit_cost ?? 0,
                 ];
             })
-            ->filter(fn($item) => $item['cheese_amount'] > 0)
-            ->sortByDesc('cheese_amount'); // Ordenar por cantidad de queso (mayor primero)
+            ->sortByDesc('total_quantity')
+            ->take(7);
+
+        $this->warn("   🎯 {$topRisks->count()} ingrediente(s) crítico(s):");
+        foreach ($topRisks as $risk) {
+            $this->line("      → {$risk['ingredient']->name}: {$risk['total_quantity']} unidades");
+        }
+
+        // Paso 3: Generar Creaciones del Chef (MÚLTIPLES VARIACIONES)
+        $this->line('');
+        $this->info('👨‍🍳 Generando recetas especiales...');
+        
+        $suggestions = [];
+        $recipeVariations = [
+            ['prefix' => 'Special', 'style' => 'Burger', 'description' => 'Edición limitada con extra'],
+            ['prefix' => 'Deluxe', 'style' => 'Wrap', 'description' => 'Versión gourmet en wrap de espinaca'],
+            ['prefix' => 'Supreme', 'style' => 'Bowl', 'description' => 'Bowl saludable con vegetales frescos'],
+            ['prefix' => 'Premium', 'style' => 'Sandwich', 'description' => 'Sandwich artesanal en pan brioche'],
+            ['prefix' => 'Lovers', 'style' => 'Burger XL', 'description' => 'Burger doble con porción extra'],
+        ];
+        
+        foreach ($topRisks as $riskIndex => $risk) {
+            $ingredient = $risk['ingredient'];
+            $ingredientShort = explode(' ', $ingredient->name)[0];
             
-            if ($cheeseProducts->isNotEmpty()) {
-                $topCheeseProduct = $cheeseProducts->first();
-                $recommendedProduct = $topCheeseProduct['product'];
-                $cheeseAmount = $topCheeseProduct['cheese_amount'];
+            // Generar 1-2 variaciones por ingrediente (dependiendo de cantidad crítica)
+            $variationsToCreate = $risk['total_quantity'] > 1500 ? 2 : 1;
+            
+            for ($v = 0; $v < $variationsToCreate; $v++) {
+                $variation = $recipeVariations[($riskIndex * 2 + $v) % count($recipeVariations)];
+                $suggestedName = "{$variation['prefix']} {$ingredientShort} {$variation['style']}";
                 
-                $this->info("   ✅ Producto con MÁS queso: {$recommendedProduct->name} (usa {$cheeseAmount} unidades)");
+                // Variar costos según el estilo
+                $ingredientMultiplier = $variation['style'] === 'Burger XL' ? 4 : 3;
+                $baseCost = ($panBase->unit_cost ?? 50) + ($carneBase->unit_cost ?? 200) + (($ingredient->unit_cost ?? 0) * $ingredientMultiplier);
+                $suggestedPrice = round($baseCost * 1.30, 2);
+                
+                $suggestions[] = [
+                    'name' => $suggestedName,
+                    'ingredient_star' => $ingredient->name,
+                    'ingredient_id' => $ingredient->id,
+                    'quantity_to_use' => $ingredientMultiplier,
+                    'recipe_structure' => [
+                        ['ingredient_id' => $panBase->id, 'name' => $panBase->name, 'quantity' => 1],
+                        ['ingredient_id' => $carneBase->id, 'name' => $carneBase->name, 'quantity' => 1],
+                        ['ingredient_id' => $ingredient->id, 'name' => $ingredient->name, 'quantity' => $ingredientMultiplier],
+                    ],
+                    'suggested_price' => $suggestedPrice,
+                    'description' => "{$variation['description']} {$ingredient->name}",
+                    'style' => $variation['style'],
+                ];
+                
+                $this->info("   ✨ Creación: {$suggestedName} (\${$suggestedPrice})");
             }
         }
+
+        // Paso 4: Notificar Administradores
+        $this->line('');
+        $this->info('📧 Enviando sugerencias...');
         
-        // Estrategia general: Priorizar hamburguesas sobre otros productos
-        if (!isset($recommendedProduct)) {
-            $burgers = $recommendedProducts->filter(function ($product) {
-                return $product->category && $product->category->name === 'Hamburguesas';
-            });
-
-            // Si hay hamburguesas disponibles, elegir la primera; si no, usar cualquier producto
-            $recommendedProduct = $burgers->isNotEmpty() ? $burgers->first() : $recommendedProducts->first();
-        }
-
-        $this->line('');
-        $this->info("💡 Producto Recomendado: {$recommendedProduct->name}");
-
-        // ========================================
-        // Paso 4: Notificar a Administradores
-        // ========================================
-        $this->line('');
-        $this->info('📧 Preparando alerta para administradores...');
-
-        $admins = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['super_admin', 'administrador']);
-        })->get();
+        $admins = User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'administrador']))->get();
 
         if ($admins->isEmpty()) {
-            $this->warn('⚠️  No se encontraron administradores para notificar.');
+            $this->warn('⚠️ No hay administradores.');
             return Command::SUCCESS;
         }
 
-        // Calcular días hasta el vencimiento
-        $daysUntilExpiry = now()->diffInDays($criticalRisk['nearest_expiry']);
-        
-        // Preparar contenido de la notificación
-        $title = "♻️ Alerta Anti-Desperdicio: {$criticalIngredient->name}";
-        $body = "Tienes **{$criticalRisk['total_quantity']} unidades** de {$criticalIngredient->name} que vencen en **{$daysUntilExpiry} día(s)**. "
-            . "El sistema sugiere lanzar una promo de **{$recommendedProduct->name}** para consumirlo rápidamente y evitar pérdidas.";
+        foreach ($suggestions as $suggestion) {
+            $recipeJson = base64_encode(json_encode($suggestion));
+            $campaignUrl = SendCampaign::getUrl(['suggested_recipe' => $recipeJson]);
 
-        // URL de campaña con datos pre-llenados + DESCUENTO FIJO
-        $campaignUrl = SendCampaign::getUrl([
-            'product_id' => $recommendedProduct->id,
-            'subject' => $title,
-            'body' => $body . "\n\n🎁 **Oferta Especial**: {$recommendedProduct->name} - ¡Aprovecha antes que se acabe!\n\nEsta promo ayuda a reducir desperdicio y maximizar ganancias.",
-            'discount_type' => 'fixed',
-            'discount_value' => 500,
-            'coupon_code' => 'NOPIERDO',
-        ]);
+            Notification::make()
+                ->title("💡 Idea de Nuevo Plato: {$suggestion['name']}")
+                ->body("Exceso de **{$suggestion['ingredient_star']}**. Sugerencia: **{$suggestion['name']}** (incluye extra {$suggestion['ingredient_star']}).\n\nPrecio: \${$suggestion['suggested_price']}")
+                ->icon('heroicon-o-light-bulb')
+                ->iconColor('warning')
+                ->actions([
+                    Action::make('create_campaign')
+                        ->label('Crear Campaña')
+                        ->icon('heroicon-o-megaphone')
+                        ->color('success')
+                        ->button()
+                        ->url($campaignUrl),
+                ])
+                ->sendToDatabase($admins);
+        }
 
-        Notification::make()
-            ->title($title)
-            ->body($body)
-            ->icon('heroicon-o-exclamation-triangle')
-            ->iconColor('warning')
-            ->actions([
-                Action::make('create_campaign')
-                    ->label('Crear Campaña')
-                    ->icon('heroicon-o-megaphone')
-                    ->color('success')
-                    ->button()
-                    ->url($campaignUrl),
-                
-                Action::make('view_ingredient')
-                    ->label('Ver Ingrediente')
-                    ->icon('heroicon-o-cube')
-                    ->color('gray')
-                    ->url("/admin/ingredients/{$criticalIngredient->id}/edit")
-                    ->openUrlInNewTab(true),
-            ])
-            ->sendToDatabase($admins);
-
-        $this->info("📧 Notificación enviada a {$admins->count()} administrador(es).");
-        $this->line('');
-        $this->info('✅ Sistema Anti-Desperdicio completado.');
-        $this->comment("♻️  Ingrediente: {$criticalIngredient->name} | Cantidad: {$criticalRisk['total_quantity']} | Vence en: {$daysUntilExpiry} día(s)");
-        $this->comment("💡 Producto sugerido: {$recommendedProduct->name}");
+        $this->info("✅ " . count($suggestions) . " sugerencia(s) enviada(s).");
+        $this->info('👨‍🍳 Chef Inteligente completado.');
 
         return Command::SUCCESS;
     }

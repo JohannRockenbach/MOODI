@@ -26,6 +26,8 @@ class Product extends Model
         'restaurant_id',
         'recipe_id',
         'preparation_time_minutes',
+        'is_temporal',
+        'critical_ingredient_id',
     ];
 
     /**
@@ -148,5 +150,13 @@ class Product extends Model
                 return (int) floor(min($possibleUnits));
             }
         );
+    }
+
+    /**
+     * Relación con el ingrediente crítico (para productos temporales anti-desperdicio)
+     */
+    public function criticalIngredient(): BelongsTo
+    {
+        return $this->belongsTo(IngredientBatch::class, 'critical_ingredient_id');
     }
 }

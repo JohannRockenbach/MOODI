@@ -32,26 +32,32 @@ class RecipeResource extends Resource
                     ->label('Nombre de la Receta')
                     ->required()
                     ->maxLength(255)
+                    ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'unique' => 'Ya existe una receta con este nombre.',
+                    ])
                     ->columnSpanFull()
                     ->placeholder('Ej: Pizza Margarita, Hamburguesa Clásica'),
 
                 Forms\Components\Textarea::make('instructions')
                     ->label('Instrucciones')
+                    ->required()
                     ->columnSpanFull()
                     ->rows(4)
-                    ->placeholder('Describe el proceso de preparación...'),
+                    ->placeholder('Describe el proceso de preparación paso a paso...')
+                    ->helperText('Las instrucciones son obligatorias para crear la receta'),
 
                 // REPEATER MÁS IMPORTANTE: Relación con Ingredientes
-                Forms\Components\Repeater::make('ingredients')
-                    ->relationship('ingredients')
+                Forms\Components\Repeater::make('ingredientsData')
                     ->label('Ingredientes')
                     ->schema([
-                        Forms\Components\Select::make('id')
+                        Forms\Components\Select::make('ingredient_id')
                             ->label('Ingrediente')
                             ->options(\App\Models\Ingredient::all()->pluck('name', 'id'))
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                             ->columnSpan(2),
 
                         Forms\Components\TextInput::make('required_amount')
@@ -70,8 +76,26 @@ class RecipeResource extends Resource
                     ->reorderable()
                     ->collapsible()
                     ->itemLabel(fn (array $state): ?string => 
-                        \App\Models\Ingredient::find($state['id'])?->name ?? 'Ingrediente'
+                        \App\Models\Ingredient::find($state['ingredient_id'])?->name ?? 'Ingrediente'
                     )
+                    ->saveRelationshipsUsing(function ($component, $state, $record) {
+                        $record->ingredients()->sync(
+                            collect($state)->mapWithKeys(fn ($item) => [
+                                $item['ingredient_id'] => ['required_amount' => $item['required_amount']]
+                            ])
+                        );
+                    })
+                    ->afterStateHydrated(function ($component, $state, $record) {
+                        if ($record && $record->exists) {
+                            $component->state(
+                                $record->ingredients->map(fn ($ingredient) => [
+                                    'ingredient_id' => $ingredient->id,
+                                    'required_amount' => $ingredient->pivot->required_amount,
+                                ])->toArray()
+                            );
+                        }
+                    })
+                    ->dehydrated(false)
                     ->columnSpanFull(),
             ]);
     }

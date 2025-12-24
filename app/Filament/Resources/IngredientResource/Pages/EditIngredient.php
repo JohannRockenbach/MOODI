@@ -10,6 +10,11 @@ class EditIngredient extends EditRecord
 {
     protected static string $resource = IngredientResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
         // Asegurar que restaurant_id siempre sea 1 (restaurante único)

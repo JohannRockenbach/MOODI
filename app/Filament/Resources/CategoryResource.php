@@ -66,18 +66,8 @@ class CategoryResource extends Resource
                             ->multiple()
                             ->searchable()
                             ->preload()
-                            ->helperText('Selecciona los productos que pertenecen a esta categoría. Puedes buscar por nombre.')
+                            ->helperText('Selecciona los productos que pertenecen a esta categoría. Para crear nuevos productos, ve a la sección Productos.')
                             ->placeholder('Selecciona uno o más productos...')
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->label('Nombre del Producto')
-                                    ->required(),
-                                Forms\Components\TextInput::make('price')
-                                    ->label('Precio')
-                                    ->numeric()
-                                    ->required()
-                                    ->prefix('$'),
-                            ])
                             ->columnSpanFull(),
                     ])
                     ->description('Los productos que selecciones aquí se asociarán automáticamente a esta categoría.')
@@ -244,15 +234,6 @@ class CategoryResource extends Resource
 
     public static function getRelations(): array
     {
-        // Only register the ChildrenRelationManager if the categories table has the
-        // `parent_id` column (migration may not have been run). This prevents SQL
-        // errors like "column categories.parent_id does not exist".
-        if (Schema::hasColumn('categories', 'parent_id')) {
-            return [
-                RelationManagers\ChildrenRelationManager::class,
-            ];
-        }
-
         return [];
     }
 

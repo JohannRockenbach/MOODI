@@ -10,6 +10,11 @@ class EditCategory extends EditRecord
 {
     protected static string $resource = CategoryResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function getHeaderActions(): array
     {
         // Hide the header delete action to avoid accidental deletion from the edit page.

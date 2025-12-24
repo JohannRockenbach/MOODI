@@ -179,11 +179,38 @@ class TableResource extends Resource implements HasShieldPermissions
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Tables\Actions\DeleteAction $action, $record) {
+                        // Verificar si la mesa tiene pedidos asociados
+                        if ($record->orders()->exists()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('No se puede eliminar')
+                                ->body('Esta mesa tiene pedidos asociados. No puede ser eliminada por integridad de datos.')
+                                ->danger()
+                                ->send();
+                            
+                            // Cancelar la acción
+                            $action->cancel();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->before(function (Tables\Actions\DeleteBulkAction $action, $records) {
+                            // Verificar si alguna mesa tiene pedidos
+                            $hasOrders = $records->filter(fn($record) => $record->orders()->exists())->count() > 0;
+                            
+                            if ($hasOrders) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title('No se puede eliminar')
+                                    ->body('Una o más mesas tienen pedidos asociados. No pueden ser eliminadas.')
+                                    ->danger()
+                                    ->send();
+                                
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ])
             ->defaultSort('number', 'asc');

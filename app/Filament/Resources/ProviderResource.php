@@ -35,7 +35,9 @@ class ProviderResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('business_name')
-                    ->label(__('Business Name'))
+                    ->label('Razón Social')
+                    ->placeholder('Ingrese el nombre o razón social del proveedor')
+                    ->helperText('Nombre comercial o legal de la empresa proveedora')
                     ->required()
                     ->maxLength(255)
                     ->columnSpanFull(),
@@ -44,15 +46,19 @@ class ProviderResource extends Resource
                     ->hidden()
                     ->default(1),
                 Forms\Components\TextInput::make('cuit')
-                    ->label(__('CUIT'))
+                    ->label('CUIT')
+                    ->placeholder('XX-XXXXXXXX-X')
+                    ->helperText('Clave Única de Identificación Tributaria')
                     ->required()
                     ->maxLength(255),
                 Forms\Components\TextInput::make('phone')
-                    ->label(__('Phone'))
+                    ->label('Teléfono')
+                    ->placeholder('+54 9 11 XXXX-XXXX')
                     ->tel()
                     ->maxLength(255),
                 Forms\Components\TextInput::make('email')
-                    ->label(__('Email'))
+                    ->label('Correo Electrónico')
+                    ->placeholder('contacto@proveedor.com')
                     ->email()
                     ->maxLength(255),
             ]);
@@ -63,35 +69,57 @@ class ProviderResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('business_name')
-                    ->label(__('Business Name'))
-                    ->searchable(),
+                    ->label('Razón Social')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('cuit')
-                    ->label(__('CUIT'))
-                    ->searchable(),
+                    ->label('CUIT')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('phone')
-                    ->label(__('Phone'))
-                    ->searchable(),
+                    ->label('Teléfono')
+                    ->searchable()
+                    ->icon('heroicon-o-phone'),
                 Tables\Columns\TextColumn::make('email')
-                    ->label(__('Email'))
-                    ->searchable(),
+                    ->label('Correo Electrónico')
+                    ->searchable()
+                    ->icon('heroicon-o-envelope')
+                    ->copyable()
+                    ->copyMessage('Correo copiado'),
                 // Ocultar columna restaurant
                 Tables\Columns\TextColumn::make('restaurant.name')
-                    ->label(__('Restaurant'))
+                    ->label('Restaurante')
                     ->sortable()
                     ->searchable()
                     ->hidden(),
             ])
             ->filters([
-                // (No hemos añadido SoftDeletes a Proveedores, así que no es necesario)
+                Tables\Filters\TrashedFilter::make()
+                    ->label('Proveedores eliminados'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->label('Editar'),
+                Tables\Actions\DeleteAction::make()
+                    ->label('Eliminar'),
+                Tables\Actions\RestoreAction::make()
+                    ->label('Restaurar'),
+                Tables\Actions\ForceDeleteAction::make()
+                    ->label('Eliminar permanentemente'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->label('Eliminar seleccionados'),
+                    Tables\Actions\RestoreBulkAction::make()
+                        ->label('Restaurar seleccionados'),
+                    Tables\Actions\ForceDeleteBulkAction::make()
+                        ->label('Eliminar permanentemente'),
                 ]),
-            ]);
+            ])
+            ->emptyStateHeading('No hay proveedores registrados')
+            ->emptyStateDescription('Comienza agregando tu primer proveedor usando el botón superior.')
+            ->emptyStateIcon('heroicon-o-truck');
     }
     
     public static function getRelations(): array

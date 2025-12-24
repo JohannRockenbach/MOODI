@@ -63,21 +63,16 @@ class CheckLoyaltyPromo extends Command
                 $age = $client->birthday ? now()->diffInYears($client->birthday) : null;
                 $ageText = $age ? " ¡Cumple {$age} años!" : '';
                 
-                $title = "🎂 ¡Cumpleaños de {$client->name}!";
-                $body = "Hoy es el cumpleaños de **{$client->name}**.{$ageText}\n\n"
-                    . "💡 **Sugerencia de Marketing**: Enviar un regalo especial como un **postre gratis** "
-                    . "o un **descuento del 15%** en su próximo pedido.\n\n"
-                    . "🎁 Esta estrategia aumenta la retención y genera lealtad emocional.";
+                $title = "🎂 ¡Feliz Cumpleaños, {$client->name}!";
+                $body = "Queremos celebrar tu día especial. Te regalamos un postre o un descuento exclusivo en tu próxima cena.\n\n🥳 ¡Festeja con nosotros!";
 
                 // URL de campaña con datos pre-llenados
                 $campaignUrl = SendCampaign::getUrl([
                     'subject' => $title,
-                    'body' => $body . "\n\n---\n\n"
-                        . "**Estimado/a {$client->name}**,\n\n"
-                        . "🎉 ¡Feliz Cumpleaños! 🎉\n\n"
-                        . "En este día especial, queremos regalarte un **postre gratis** en tu próxima visita.\n\n"
-                        . "Simplemente menciona este mensaje al hacer tu pedido.\n\n"
-                        . "¡Que tengas un día increíble! 🎂🎈",
+                    'body' => $body,
+                    'discount_type' => 'percentage',
+                    'discount_value' => 15,
+                    'coupon_code' => 'CUMPLE' . strtoupper(substr($client->name, 0, 3)),
                     'testEmail' => $client->email ?? '',
                 ]);
 
@@ -93,17 +88,10 @@ class CheckLoyaltyPromo extends Command
                             ->color('success')
                             ->button()
                             ->url($campaignUrl),
-                        
-                        Action::make('view_client')
-                            ->label('Ver Cliente')
-                            ->icon('heroicon-o-user')
-                            ->color('gray')
-                            ->url("/admin/clientes/{$client->id}/edit")
-                            ->openUrlInNewTab(true),
                     ])
                     ->sendToDatabase($admins);
 
-                $this->info("      ✉️  Notificación enviada a administradores");
+                $this->info("      ✉️  Notificación enviada");
             }
         }
 
@@ -131,26 +119,16 @@ class CheckLoyaltyPromo extends Command
                 $ordersCount = $client->orders_count;
                 $this->line("      → {$client->name} ({$ordersCount} pedidos este mes)");
                 
-                $title = "👑 Nuevo Cliente VIP: {$client->name}";
-                $body = "**{$client->name}** ha realizado **{$ordersCount} pedidos** en los últimos 30 días.\n\n"
-                    . "💡 **Sugerencia de Marketing**: Enviar un **cupón de fidelidad del 20%** "
-                    . "o beneficios exclusivos para clientes frecuentes.\n\n"
-                    . "👑 Los clientes VIP generan el 80% de los ingresos recurrentes. "
-                    . "¡Es momento de recompensarlos!";
+                $title = "👑 ¡Eres uno de nuestros mejores clientes!";
+                $body = "Gracias por elegirnos siempre. Como agradecimiento, aquí tienes un beneficio exclusivo para tu próxima visita.";
 
                 // URL de campaña con datos pre-llenados
                 $campaignUrl = SendCampaign::getUrl([
                     'subject' => $title,
-                    'body' => $body . "\n\n---\n\n"
-                        . "**Estimado/a {$client->name}**,\n\n"
-                        . "🌟 ¡Eres un Cliente VIP! 🌟\n\n"
-                        . "Hemos notado que nos visitas frecuentemente y queremos agradecértelo.\n\n"
-                        . "🎁 **Regalo especial**: 20% de descuento en tu próximo pedido con el código **VIP20**.\n\n"
-                        . "Además, a partir de ahora tendrás:\n"
-                        . "• Prioridad en la cocina\n"
-                        . "• Postre gratis en pedidos grandes\n"
-                        . "• Acceso a promociones exclusivas\n\n"
-                        . "¡Gracias por tu lealtad! 👑",
+                    'body' => $body,
+                    'discount_type' => 'percentage',
+                    'discount_value' => 20,
+                    'coupon_code' => 'VIPMEMBER',
                     'testEmail' => $client->email ?? '',
                 ]);
 
@@ -166,32 +144,15 @@ class CheckLoyaltyPromo extends Command
                             ->color('warning')
                             ->button()
                             ->url($campaignUrl),
-                        
-                        Action::make('view_client')
-                            ->label('Ver Cliente')
-                            ->icon('heroicon-o-user')
-                            ->color('gray')
-                            ->url("/admin/clientes/{$client->id}/edit")
-                            ->openUrlInNewTab(true),
-                        
-                        Action::make('view_orders')
-                            ->label('Ver Pedidos')
-                            ->icon('heroicon-o-shopping-bag')
-                            ->color('gray')
-                            ->url("/admin/orders")
-                            ->openUrlInNewTab(true),
                     ])
                     ->sendToDatabase($admins);
 
-                $this->info("      ✉️  Notificación enviada a administradores");
+                $this->info("      ✉️  Notificación enviada");
             }
         }
 
         $this->line('');
         $this->info('✅ Sistema de Fidelización completado.');
-        
-        $totalNotifications = $birthdayClients->count() + $vipClients->count();
-        $this->comment("📊 Resumen: {$birthdayClients->count()} cumpleaños + {$vipClients->count()} VIP = {$totalNotifications} oportunidades de fidelización");
 
         return Command::SUCCESS;
     }

@@ -87,7 +87,11 @@ class IngredientResource extends Resource
                 // Nota: Los campos pivot (precio y unidad de compra) se gestionan desde el ProviderResource
                 Forms\Components\Select::make('providers')
                     ->label('Proveedores')
-                    ->relationship('providers', 'business_name')
+                    ->relationship(
+                        'providers', 
+                        'business_name',
+                        fn (Builder $query) => $query->where('restaurant_id', 1)
+                    )
                     ->multiple()
                     ->searchable()
                     ->preload()

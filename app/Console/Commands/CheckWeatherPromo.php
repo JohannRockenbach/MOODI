@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Filament\Resources\ProductResource;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Restaurant;
 use App\Models\User;
 use App\Services\WeatherService;
 use Filament\Notifications\Actions\Action;
@@ -59,6 +60,16 @@ class CheckWeatherPromo extends Command
         $this->line('');
         $this->info('🎯 Analizando escenario óptimo...');
 
+        // Obtener configuración de umbrales desde base de datos
+        $restaurant = Restaurant::find(1);
+        $settings = $restaurant?->marketing_settings ?? [];
+        $thresholds = config('marketing.weather.thresholds');
+        
+        // Usar umbrales personalizados si existen
+        $heatThreshold = $settings['temp_heat_threshold'] ?? $thresholds['extreme_heat']['min_temp'];
+        $coldThreshold = $settings['temp_cold_threshold'] ?? $thresholds['cold']['max_temp'];
+        $rainProbability = $settings['rain_probability'] ?? 50;
+        
         $scenario = null;
         $title = '';
         $body = '';
@@ -69,139 +80,117 @@ class CheckWeatherPromo extends Command
         $discountValue = 20;
         $couponCode = 'CLIMA20';
 
-        // ESCENARIO A: CALOR EXTREMO (>32°C) - Pack Cervezas o Helados
-        if ($temp > 32) {
+        // ESCENARIO A: CALOR EXTREMO
+        if ($temp > $heatThreshold) {
+            $config = $thresholds['extreme_heat'];
             $this->info("   🔥 Escenario detectado: CALOR EXTREMO ({$temp}°C) → Estrategia \"Pack Refrescante\"");
             
-            $beer = $this->findProduct(['Pinta', 'Cerveza', 'Chopp'], 20);
-            $icecream = $this->findProduct(['Helado', 'Postre Frío'], 10);
+            $product = $this->findProduct($config['products'], $config['min_stock']);
 
-            if ($beer && $beer->real_stock >= 20) {
+            if ($product) {
                 $scenario = 'extreme_heat';
-                $title = "🔥 ¡CALOR EXTREMO! Pack Cervezas";
-                $body = "¡{$temp}°C en Apóstoles! **Sugerencia:** Pack '{$beer->name} x6' con 20% OFF. "
-                    . "Stock disponible: {$beer->real_stock} unidades.";
+                $title = "☀️ ¡Combate el calor!";
+                $body = "☀️ ¡Combate el calor! Tenemos las pintas más heladas de la ciudad esperándote. 2x1 en Cervezas Artesanales.\n\n🍺 Aprovecha esta oferta exclusiva y refresca tu día.";
                 $icon = 'heroicon-o-fire';
                 $iconColor = 'danger';
-                $products = ['beer' => $beer];
-                $this->line("   ✅ Cerveza seleccionada: {$beer->name} (Stock: {$beer->real_stock})");
-            } elseif ($icecream && $icecream->real_stock >= 10) {
-                $scenario = 'extreme_heat';
-                $title = "🔥 ¡CALOR EXTREMO! Helados";
-                $body = "¡{$temp}°C en Apóstoles! **Sugerencia:** Promo '{$icecream->name}' con 20% OFF. "
-                    . "Stock disponible: {$icecream->real_stock} unidades.";
-                $icon = 'heroicon-o-fire';
-                $iconColor = 'danger';
-                $products = ['icecream' => $icecream];
-                $this->line("   ✅ Helado seleccionado: {$icecream->name} (Stock: {$icecream->real_stock})");
+                $products = ['main' => $product];
+                $discountValue = $config['discount'];
+                $couponCode = $config['coupon_prefix'] . date('md');
+                $this->line("   ✅ Producto seleccionado: {$product->name}");
             } else {
-                $this->warn('   ⚠️  Stock insuficiente para Pack Refrescante');
+                $this->warn('   ⚠️  No hay productos disponibles para Pack Refrescante');
             }
         }
-        // ESCENARIO B: DESCENSO BRUSCO (<15°C) - Guisos o Hamburguesa Doble
-        elseif ($temp < 15) {
+        // ESCENARIO B: DESCENSO BRUSCO (FRÍO)
+        elseif ($temp < $coldThreshold) {
+            $config = $thresholds['cold'];
             $this->info("   ❄️  Escenario detectado: DESCENSO BRUSCO ({$temp}°C) → Estrategia \"Combo Calentito\"");
             
-            $stew = $this->findProduct(['Guiso', 'Sopa', 'Caldo'], 10);
-            $doubleBurger = $this->findProduct(['Doble', 'Double', 'Cuarto'], 15);
+            $product = $this->findProduct($config['products'], $config['min_stock']);
 
-            if ($stew && $stew->real_stock >= 10) {
+            if ($product) {
                 $scenario = 'cold';
-                $title = "❄️ ¡QUÉ FRÍO! Guisos Calientes";
-                $body = "Solo {$temp}°C en Apóstoles. **Sugerencia:** Promo '{$stew->name}' con 20% OFF. "
-                    . "Stock disponible: {$stew->real_stock} porciones.";
+                $title = "❄️ ¡Combo Calentito Perfecto!";
+                $body = "❄️ ¡Qué frío hace! Nada mejor que un {$product->name} para entrar en calor.\n\n☕ Pedilo ahora con descuento exclusivo. ¡Te va a encantar!";
                 $icon = 'heroicon-o-fire';
                 $iconColor = 'info';
-                $products = ['stew' => $stew];
-                $this->line("   ✅ Guiso seleccionado: {$stew->name} (Stock: {$stew->real_stock})");
-            } elseif ($doubleBurger && $doubleBurger->real_stock >= 15) {
-                $scenario = 'cold';
-                $title = "❄️ ¡QUÉ FRÍO! Hamburguesa Doble";
-                $body = "Solo {$temp}°C en Apóstoles. **Sugerencia:** Promo '{$doubleBurger->name}' con 20% OFF. "
-                    . "Perfecta para entrar en calor. Stock: {$doubleBurger->real_stock} unidades.";
-                $icon = 'heroicon-o-fire';
-                $iconColor = 'info';
-                $products = ['burger' => $doubleBurger];
-                $this->line("   ✅ Hamburguesa Doble: {$doubleBurger->name} (Stock: {$doubleBurger->real_stock})");
+                $products = ['main' => $product];
+                $discountValue = $config['discount'];
+                $couponCode = $config['coupon_prefix'] . date('md');
+                $this->line("   ✅ Producto seleccionado: {$product->name}");
             } else {
-                $this->warn('   ⚠️  Stock insuficiente para Combo Calentito');
+                $this->warn('   ⚠️  No hay productos disponibles para Combo Calentito');
             }
         }
-        // ESCENARIO C: LLUVIA - Combo Netflix (2 Burgers + 1 Bebida)
+        // ESCENARIO C: LLUVIA
         elseif ($isRaining) {
+            $config = $thresholds['rainy'];
             $this->info('   🌧️  Escenario detectado: LLUVIA → Estrategia "Combo Netflix"');
             
-            $burger = $this->findIntermediatePriceBurger();
-            $drink = $this->findProduct(['Bebida', 'Bebidas', 'Gaseosa'], 10);
+            $product = $this->findProduct($config['products'], $config['min_stock']);
 
-            if ($burger && $drink && $burger->real_stock >= 20 && $drink->real_stock >= 10) {
+            if ($product) {
                 $scenario = 'rain';
-                $title = "🌧️ Oportunidad Lluvia: Combo 'Pareja'";
-                $body = "Llueve en Apóstoles. **Sugerencia:** Promo '{$burger->name} x2 + {$drink->name}' con 20% OFF. "
-                    . "Stock disponible: {$burger->real_stock} burgers y {$drink->real_stock} bebidas.";
+                $title = "🌧️ ¡Planazo para hoy!";
+                $body = "🌧️ ¡Planazo para hoy! Llueve en la ciudad y lo último que quieres es salir. Te llevamos el Combo Netflix a tu puerta.\n\n🏠 Pedí ahora y disfrutá sin moverte del sillón.";
                 $icon = 'heroicon-o-cloud';
                 $iconColor = 'primary';
-                $products = ['burger' => $burger, 'drink' => $drink];
-
-                $this->line("   ✅ Burger seleccionada: {$burger->name} (Stock: {$burger->real_stock})");
-                $this->line("   ✅ Bebida seleccionada: {$drink->name} (Stock: {$drink->real_stock})");
+                $products = ['main' => $product];
+                $discountValue = $config['discount'];
+                $couponCode = $config['coupon_prefix'] . date('md');
+                $this->line("   ✅ Producto seleccionado: {$product->name}");
             } else {
-                $this->warn('   ⚠️  Stock insuficiente para Combo Netflix');
-                $this->line('       Requerido: Burger (≥20) + Bebida (≥10)');
+                $this->warn('   ⚠️  No hay productos disponibles para Combo Netflix');
             }
         }
-        // ESCENARIO D: CALOR MODERADO (28-32°C) - Combo After Office (Cerveza + Papas)
-        elseif ($temp > 28) {
+        // ESCENARIO D: CALOR MODERADO
+        elseif ($temp > $thresholds['hot']['min_temp'] && $temp <= $thresholds['hot']['max_temp']) {
+            $config = $thresholds['hot'];
             $this->info("   ☀️  Escenario detectado: CALOR MODERADO ({$temp}°C) → Estrategia \"After Office\"");
             
-            $beer = $this->findProduct(['Pinta', 'Cerveza', 'Chopp'], 20);
-            $fries = $this->findProduct(['Papa', 'Papas'], 20);
+            $product = $this->findProduct($config['products'], $config['min_stock']);
 
-            if ($beer && $fries && $beer->real_stock >= 20 && $fries->real_stock >= 20) {
+            if ($product) {
                 $scenario = 'heat';
-                $title = "☀️ ¡Qué Calor! Combo 'After Office'";
-                $body = "¡{$temp}°C en Apóstoles! **Sugerencia:** Promo '{$beer->name} + {$fries->name}' con 20% OFF. "
-                    . "Stock disponible: {$beer->real_stock} cervezas y {$fries->real_stock} papas.";
+                $title = "☀️ ¡Día perfecto para compartir!";
+                $body = "☀️ ¡Qué lindo día! Aprovecha y disfrutá de nuestro {$product->name} con amigos.\n\n🎉 Oferta especial para que tu día sea inolvidable.";
                 $icon = 'heroicon-o-sun';
                 $iconColor = 'warning';
-                $products = ['beer' => $beer, 'fries' => $fries];
-
-                $this->line("   ✅ Cerveza seleccionada: {$beer->name} (Stock: {$beer->real_stock})");
-                $this->line("   ✅ Papas seleccionadas: {$fries->name} (Stock: {$fries->real_stock})");
+                $products = ['main' => $product];
+                $discountValue = $config['discount'];
+                $couponCode = $config['coupon_prefix'] . date('md');
+                $this->line("   ✅ Producto seleccionado: {$product->name}");
             } else {
-                $this->warn('   ⚠️  Stock insuficiente para Combo After Office');
-                $this->line('       Requerido: Cerveza (≥20) + Papas (≥20)');
+                $this->warn('   ⚠️  No hay productos disponibles para Combo After Office');
             }
         }
-        // ESCENARIO E: ESTÁNDAR - Combo Simple (Burger + Papa)
+        // ESCENARIO E: CLIMA AGRADABLE
         else {
-            $this->info('   🍽️  Escenario detectado: ESTÁNDAR → Estrategia "Menú Ejecutivo"');
+            $config = $thresholds['pleasant'];
+            $this->info('   🍽️  Escenario detectado: CLIMA AGRADABLE → Estrategia "Menú del Día"');
             
-            $burger = $this->findIntermediatePriceBurger();
-            $fries = $this->findProduct(['Papa', 'Papas'], 15);
+            $product = $this->findProduct($config['products'], $config['min_stock']);
 
-            if ($burger && $fries && $burger->real_stock >= 15 && $fries->real_stock >= 15) {
+            if ($product) {
                 $scenario = 'standard';
-                $title = "🍽️ Día Tranquilo: Menú Ejecutivo";
-                $body = "Condiciones estándar. **Sugerencia:** Promo '{$burger->name} + {$fries->name}' con 20% OFF. "
-                    . "Stock disponible: {$burger->real_stock} burgers y {$fries->real_stock} papas.";
+                $title = "🍽️ ¡Momento perfecto para disfrutar!";
+                $body = "🍽️ ¡Día ideal! Aprovecha y probá nuestro delicioso {$product->name}.\n\n✨ Oferta especial disponible hoy. ¡No te lo pierdas!";
                 $icon = 'heroicon-o-shopping-bag';
                 $iconColor = 'success';
-                $products = ['burger' => $burger, 'fries' => $fries];
-
-                $this->line("   ✅ Burger seleccionada: {$burger->name} (Stock: {$burger->real_stock})");
-                $this->line("   ✅ Papas seleccionadas: {$fries->name} (Stock: {$fries->real_stock})");
+                $products = ['main' => $product];
+                $discountValue = $config['discount'];
+                $couponCode = $config['coupon_prefix'] . date('md');
+                $this->line("   ✅ Producto seleccionado: {$product->name}");
             } else {
-                $this->warn('   ⚠️  Stock insuficiente para Menú Ejecutivo');
-                $this->line('       Requerido: Burger (≥15) + Papas (≥15)');
+                $this->warn('   ⚠️  No hay productos disponibles para Menú del Día');
             }
         }
 
         // Si no hay escenario válido, terminar
         if (!$scenario) {
             $this->line('');
-            $this->warn('❌ No se pudo generar ninguna estrategia de combo con el stock disponible.');
-            $this->comment('💡 Reponer stock de productos clave para activar el motor de marketing.');
+            $this->warn('❌ No se pudo generar ninguna estrategia de combo.');
+            $this->comment('💡 Verifica que haya productos disponibles para activar el motor de marketing.');
             return Command::SUCCESS;
         }
 
@@ -209,7 +198,7 @@ class CheckWeatherPromo extends Command
         // Paso 3: Notificar a Administradores
         // ========================================
         $this->line('');
-        $this->info("✅ Estrategia generada: {$scenario}");
+        $this->info("✅ Oportunidad detectada: {$scenario}");
 
         $admins = User::whereHas('roles', function ($query) {
             $query->whereIn('name', ['super_admin', 'administrador']);
@@ -220,9 +209,9 @@ class CheckWeatherPromo extends Command
             return Command::SUCCESS;
         }
 
-        $this->info('📧 Enviando notificación a ' . $admins->count() . ' administrador(es)...');
+        $this->info('📧 Enviando notificación...');
 
-        // Preparar URLs para los botones con parámetros de descuento
+        // Preparar URL para campaña
         $campaignUrl = \App\Filament\Pages\SendCampaign::getUrl([
             'subject' => $title,
             'body' => $body,
@@ -230,38 +219,24 @@ class CheckWeatherPromo extends Command
             'discount_value' => $discountValue,
             'coupon_code' => $couponCode,
         ]);
-        
-        // URL de la lista de productos
-        $viewProductsUrl = ProductResource::getUrl('index');
 
         Notification::make()
-            ->title($title)
-            ->body($body)
+            ->title("🌤️ PROMOCIÓN POR CLIMA: " . $title)
+            ->body($body . "\n\n⚡ Esta promoción fue generada automáticamente según el clima actual.")
             ->icon($icon)
             ->iconColor($iconColor)
             ->actions([
                 Action::make('create_campaign')
-                    ->label('Crear Campaña')
+                    ->label('🌤️ Crear Campaña de Clima')
                     ->icon('heroicon-o-megaphone')
                     ->color('success')
                     ->button()
                     ->url($campaignUrl),
-                
-                Action::make('view_products')
-                    ->label('Ver Productos')
-                    ->icon('heroicon-o-shopping-bag')
-                    ->color('gray')
-                    ->url($viewProductsUrl)
-                    ->openUrlInNewTab(true),
             ])
             ->sendToDatabase($admins);
 
-        $this->line('');
-        $this->info('✉️  Notificación enviada exitosamente.');
-        $this->line('');
-        $this->comment('💡 Motor de Marketing: Estrategia generada y notificación enviada.');
-        $this->comment("💡 Escenario: {$scenario} | Clima: {$temp}°C | Lluvia: " . ($isRaining ? 'Sí' : 'No'));
-        
+        $this->info('✅ Notificación enviada exitosamente.');
+
         return Command::SUCCESS;
     }
 
@@ -278,7 +253,7 @@ class CheckWeatherPromo extends Command
 
         $burgers = Product::where('category_id', $hamburgerCategory->id)
             ->get()
-            ->filter(fn($product) => $product->real_stock > 20);
+            ->filter(fn($product) => $product->stock > 20);
 
         if ($burgers->isEmpty()) {
             return null;
@@ -301,8 +276,8 @@ class CheckWeatherPromo extends Command
             if ($category) {
                 $product = Product::where('category_id', $category->id)
                     ->get()
-                    ->filter(fn($p) => $p->real_stock >= $minStock)
-                    ->sortByDesc('real_stock')
+                    ->filter(fn($p) => $p->stock >= $minStock)
+                    ->sortByDesc('stock')
                     ->first();
 
                 if ($product) {
@@ -313,8 +288,8 @@ class CheckWeatherPromo extends Command
             // Si no se encontró por categoría, buscar por nombre de producto
             $product = Product::where('name', 'like', "%{$categoryName}%")
                 ->get()
-                ->filter(fn($p) => $p->real_stock >= $minStock)
-                ->sortByDesc('real_stock')
+                ->filter(fn($p) => $p->stock >= $minStock)
+                ->sortByDesc('stock')
                 ->first();
                 
             if ($product) {

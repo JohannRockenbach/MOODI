@@ -27,7 +27,7 @@
                             
                             {{-- Texto Principal (Renderizado como Markdown/HTML) --}}
                             <div style="margin-bottom: 30px;">
-                                {!! nl2br(e($body)) !!}
+                                {!! \Illuminate\Support\Str::markdown($body) !!}
                             </div>
 
                             {{-- Panel de Descuento (Si existe cupón) --}}
@@ -39,7 +39,7 @@
                                     <p style="margin: 10px 0 0 0; color: #92400e; font-size: 14px;">{{ $discountText }}</p>
                                 @endif
                                 @if(!empty($validUntil))
-                                    <p style="margin: 5px 0 0 0; color: #b45309; font-size: 12px;">Válido hasta: {{ $validUntil }}</p>
+                                    <p style="margin: 5px 0 0 0; color: #b45309; font-size: 12px;">Válido hasta: {{ $validUntil }} o hasta agotar stock</p>
                                 @endif
                             </div>
                             @endif

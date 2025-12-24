@@ -14,17 +14,12 @@
         </div>
     @else
         <div class="mb-4 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                    </svg>
-                    <span class="text-sm font-semibold text-primary-900 dark:text-primary-100">
-                        Total: {{ $products->count() }} producto{{ $products->count() !== 1 ? 's' : '' }}
-                    </span>
-                </div>
-                <span class="text-sm font-bold text-primary-700 dark:text-primary-300">
-                    Total: $ {{ number_format($products->sum('price'), 2, ',', '.') }}
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+                <span class="text-sm font-semibold text-primary-900 dark:text-primary-100">
+                    Total: {{ $products->count() }} producto{{ $products->count() !== 1 ? 's' : '' }}
                 </span>
             </div>
         </div>
@@ -71,14 +66,32 @@
                                     </span>
                                 @endif
 
-                                @if(isset($product->stock))
-                                    <span class="inline-flex items-center gap-1">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                        </svg>
-                                        Stock: {{ $product->stock }}
+                                @php
+                                    // Calcular stock real basado en ingredientes y recetas
+                                    $realStock = 0;
+                                    if ($product->recipe && $product->recipe->ingredients->count() > 0) {
+                                        $minStock = PHP_INT_MAX;
+                                        foreach ($product->recipe->ingredients as $ingredient) {
+                                            $requiredAmount = $ingredient->pivot->required_amount ?? 1;
+                                            $availableAmount = $ingredient->current_stock ?? 0;
+                                            $possibleUnits = $requiredAmount > 0 ? floor($availableAmount / $requiredAmount) : 0;
+                                            $minStock = min($minStock, $possibleUnits);
+                                        }
+                                        $realStock = $minStock === PHP_INT_MAX ? 0 : $minStock;
+                                    } else {
+                                        // Si no tiene receta, usar el stock directo del producto
+                                        $realStock = $product->stock ?? 0;
+                                    }
+                                @endphp
+                                
+                                <span class="inline-flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                    <span class="font-medium {{ $realStock > 10 ? 'text-green-600 dark:text-green-400' : ($realStock > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400') }}">
+                                        Stock: {{ $realStock }} {{ $product->recipe ? 'unidades' : 'disponibles' }}
                                     </span>
-                                @endif
+                                </span>
 
                                 @if($product->created_at)
                                     <span class="inline-flex items-center gap-1">
@@ -108,22 +121,6 @@
                     </div>
                 </div>
             @endforeach
-        </div>
-
-        <!-- Resumen final -->
-        <div class="mt-6 pt-4 border-t-2 border-gray-200 dark:border-gray-700">
-            <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <p class="text-gray-600 dark:text-gray-400 mb-1">Total de productos</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $products->count() }}</p>
-                </div>
-                <div class="p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                    <p class="text-primary-700 dark:text-primary-300 mb-1">Valor total</p>
-                    <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                        $ {{ number_format($products->sum('price'), 2, ',', '.') }}
-                    </p>
-                </div>
-            </div>
         </div>
     @endif
 </div>

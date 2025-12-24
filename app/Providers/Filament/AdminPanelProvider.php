@@ -42,6 +42,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 Pages\Dashboard::class,
+                \App\Filament\Pages\MarketingSettings::class,
             ])
             ->navigationGroups([
                 NavigationGroup::make('Operaciones')
