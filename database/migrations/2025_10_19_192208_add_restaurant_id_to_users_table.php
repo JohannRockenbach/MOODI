@@ -13,7 +13,7 @@ public function up(): void
 {
     Schema::table('users', function (Blueprint $table) {
         // Aquí añadimos la columna y la clave foránea a la tabla 'users' que ya existe.
-        $table->foreignId('restaurant_id')
+        $table->foreignId('restaurant_id')->nullable()->constrained()
               ->constrained('restaurants')
               ->onUpdate('cascade')
               ->onDelete('cascade');
