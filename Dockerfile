@@ -1,12 +1,16 @@
 FROM php:8.2-apache
 
-# Instalar dependencias del sistema y drivers para Postgres
+# Instalar dependencias del sistema y drivers
+# AGREGAMOS: libzip-dev y libicu-dev para que funcionen Zip y Filament
 RUN apt-get update && apt-get install -y \
     libpq-dev \
+    libzip-dev \
+    libicu-dev \
     unzip \
     zip \
     git \
-    && docker-php-ext-install pdo pdo_pgsql
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install pdo pdo_pgsql zip intl
 
 # Activar mod_rewrite para que funcionen las rutas de Laravel
 RUN a2enmod rewrite
