@@ -1,7 +1,6 @@
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 # Instalar dependencias del sistema y drivers
-# AGREGAMOS: libzip-dev y libicu-dev para que funcionen Zip y Filament
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
