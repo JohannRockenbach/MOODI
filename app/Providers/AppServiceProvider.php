@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use App\Http\Livewire\CajaBalance;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
         // Register Livewire component alias for CajaBalance (ensures @livewire('caja-balance') resolves)
         if (class_exists(CajaBalance::class)) {
             Livewire::component('caja-balance', CajaBalance::class);
+        }
+        if (app()->environment('production')) {
+            URL::forceScheme('https');
         }
     }
 }
