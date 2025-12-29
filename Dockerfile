@@ -11,16 +11,13 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure intl \
     && docker-php-ext-install pdo pdo_pgsql zip intl
 
-# Activar mod_rewrite para que funcionen las rutas de Laravel
+# Activar mod_rewrite
 RUN a2enmod rewrite
 
-# Configurar la carpeta pública de Apache
+# Configurar Apache
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
-
-# --- CORRECCIÓN DEL ERROR 404 ---
-# Obligar a Apache a leer el archivo .htaccess de Laravel
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 # Instalar Composer
@@ -33,5 +30,12 @@ COPY . .
 # Instalar dependencias de Laravel
 RUN composer install --no-dev --optimize-autoloader
 
-# Dar permisos a las carpetas de almacenamiento
+# Permisos
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# --- NUEVO: Configurar el script de arranque ---
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
+# Ejecutar el script al iniciar
+CMD ["/usr/local/bin/start.sh"]
