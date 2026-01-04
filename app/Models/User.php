@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes; // <-- 1. IMPORTANTE: Importar el 
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles; //importa el trait
+use Filament\Models\Contracts\FilamentUser; // <--- IMPORTANTE
+use Filament\Panel; // <--- IMPORTANTE
 
 class User extends Authenticatable
 {
@@ -109,5 +111,13 @@ class User extends Authenticatable
     public function closedCajas(): HasMany
     {
         return $this->hasMany(Caja::class, 'closing_user_id');
+    }
+    
+    // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Si el email es el tuyo, entra.
+        // También verifica que tenga email verificado si quieres ser estricto.
+        return $this->email === 'admin@moodi.com'; 
     }
 }
