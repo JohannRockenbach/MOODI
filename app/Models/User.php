@@ -13,7 +13,7 @@ use Spatie\Permission\Traits\HasRoles; //importa el trait
 use Filament\Models\Contracts\FilamentUser; // <--- IMPORTANTE
 use Filament\Panel; // <--- IMPORTANTE
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     // Usamos los Traits que nos da Laravel y añadimos el nuestro
     use HasFactory, Notifiable, SoftDeletes, HasRoles; // <-- 2. IMPORTANTE: Usar el Trait y AÑADIR HasRoles
