@@ -18,7 +18,7 @@ php artisan storage:link
 
 
 echo "Publicando estilos de Filament..."
-php artisan filament:assets --force
+php artisan filament:assets
 
 
 echo "Iniciando Servidor Web..."
