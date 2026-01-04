@@ -112,12 +112,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(Caja::class, 'closing_user_id');
     }
-    
+
     // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // Si el email es el tuyo, entra.
-        // También verifica que tenga email verificado si quieres ser estricto.
-        return $this->email === 'admin@moodi.com'; 
+        // CAMBIO TEMPORAL: Devolver true siempre para probar
+        return true; 
     }
 }
