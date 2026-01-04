@@ -4,6 +4,8 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Caja;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 Route::get('/', function () {
     return view('welcome');
@@ -57,3 +59,30 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// --- RUTA DE EMERGENCIA PARA CREAR USUARIO ---
+Route::get('/crear-admin-emergencia', function () {
+    try {
+        $email = 'admin@moodi.com'; // El correo que usaremos
+        $password = 'password123';  // La contraseña provisional
+
+        // Busca si existe, si no, lo crea
+        $user = User::firstOrNew(['email' => $email]);
+        
+        $user->name = 'Super Admin';
+        $user->password = Hash::make($password);
+        $user->email_verified_at = now(); // Lo marcamos como verificado
+        
+        // Importante: aseguramos que restaurant_id sea null (Super Admin)
+        // Solo si tu tabla tiene esta columna
+        if (\Schema::hasColumn('users', 'restaurant_id')) {
+            $user->restaurant_id = null;
+        }
+
+        $user->save();
+
+        return "EXITO: Usuario creado/restablecido.<br>Email: $email<br>Password: $password<br><br><a href='/admin'>Ir al Login</a>";
+    } catch (\Exception $e) {
+        return "ERROR: " . $e->getMessage();
+    }
+});
