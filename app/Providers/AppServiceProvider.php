@@ -7,6 +7,7 @@ use Livewire\Livewire;
 use App\Http\Livewire\CajaBalance;
 use Illuminate\Support\Facades\URL;
 
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
