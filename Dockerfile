@@ -1,6 +1,6 @@
 FROM php:8.3-apache
 
-# Instalar dependencias del sistema y drivers
+# 1. Instalar dependencias del sistema, drivers y CURL (necesario para instalar Node)
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
@@ -8,8 +8,14 @@ RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     git \
+    curl \
     && docker-php-ext-configure intl \
     && docker-php-ext-install pdo pdo_pgsql zip intl
+
+# 2. Instalar Node.js (Versión 20) y NPM
+# Esto es CRUCIAL para que Vite funcione
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
 
 # Activar mod_rewrite
 RUN a2enmod rewrite
@@ -27,13 +33,18 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 COPY . .
 
-# Instalar dependencias de Laravel
+# 3. Instalar dependencias de Laravel (PHP)
 RUN composer install --no-dev --optimize-autoloader
+
+# 4. Instalar dependencias de Frontend (Node) y COMPILAR ASSETS
+# Este paso crea el archivo manifest.json que te falta
+RUN npm install
+RUN npm run build
 
 # Permisos
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# --- NUEVO: Configurar el script de arranque ---
+# --- Configurar el script de arranque ---
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
