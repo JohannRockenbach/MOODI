@@ -116,7 +116,10 @@ class User extends Authenticatable implements FilamentUser
     // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // CAMBIO TEMPORAL: Devolver true siempre para probar
-        return true; 
+        // Solo permite entrar a Johann y al Admin de respaldo
+        return in_array($this->email, [
+            'rockenbachjohann@gmail.com',
+            'admin@moodi.com',
+        ]);
     }
 }
