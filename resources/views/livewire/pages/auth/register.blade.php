@@ -36,9 +36,12 @@ $register = function () {
 
     event(new Registered($user = User::create($validated)));
 
-    Auth::login($user);
+    // No auto-login: el usuario debe iniciar sesión manualmente
+    // Auth::login($user);
 
-    $this->redirect(route('dashboard', absolute: false), navigate: true);
+    session()->flash('status', '¡Cuenta creada! Por favor ingresa.');
+
+    $this->redirect(route('login', absolute: false), navigate: true);
 };
 
 ?>
