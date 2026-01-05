@@ -15,6 +15,8 @@ layout('layouts.guest');
 state([
     'name' => '',
     'email' => '',
+    'phone' => '',
+    'birthday' => '',
     'password' => '',
     'password_confirmation' => ''
 ]);
@@ -22,6 +24,8 @@ state([
 rules([
     'name' => ['required', 'string', 'max:255'],
     'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+    'phone' => ['nullable', 'string', 'max:20'],
+    'birthday' => ['nullable', 'date', 'before:today'],
     'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
 ]);
 
@@ -55,6 +59,20 @@ $register = function () {
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
+        <!-- Phone -->
+        <div class="mt-4">
+            <x-input-label for="phone" :value="__('Teléfono')" />
+            <x-text-input wire:model="phone" id="phone" class="block mt-1 w-full" type="tel" name="phone" autocomplete="tel" placeholder="+56 9 1234 5678" />
+            <x-input-error :messages="$errors->get('phone')" class="mt-2" />
+        </div>
+
+        <!-- Birthday -->
+        <div class="mt-4">
+            <x-input-label for="birthday" :value="__('Fecha de Nacimiento')" />
+            <x-text-input wire:model="birthday" id="birthday" class="block mt-1 w-full" type="date" name="birthday" autocomplete="bday" />
+            <x-input-error :messages="$errors->get('birthday')" class="mt-2" />
+        </div>
+
         <!-- Password -->
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
@@ -79,7 +97,7 @@ $register = function () {
         </div>
 
         <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800" href="{{ route('login') }}" wire:navigate>
+            <a class="underline text-sm text-gray-300 hover:text-orange-400 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 focus:ring-offset-gray-900 transition duration-150" href="{{ route('login') }}" wire:navigate>
                 {{ __('Already registered?') }}
             </a>
 

@@ -27,6 +27,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'phone',
+        'birthday',
         'account_status',
         'restaurant_id', // Incluimos la FK para poder asignarla masivamente
         // Nuevos campos de empleados
@@ -59,6 +60,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'birthday' => 'date',
             'birth_date' => 'date',
             'start_date' => 'date',
             'end_date' => 'date',
