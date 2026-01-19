@@ -30,6 +30,10 @@ rules([
 ]);
 
 $register = function () {
+    dd('ESTOY LEYENDO EL CODIGO NUEVO');
+    $validated = $this->validate();
+
+    $validated['password'] = Hash::make($validated['password']);
     try {
         $validated = $this->validate();
 
