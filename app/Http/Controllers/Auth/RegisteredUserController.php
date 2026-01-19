@@ -43,8 +43,10 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
+        // Auth::login($user); // Eliminado: No auto-login después del registro
 
-        return redirect(route('dashboard', absolute: false));
+        session()->flash('status', '¡Cuenta creada! Por favor ingresa.');
+
+        return redirect(route('login', absolute: false));
     }
 }

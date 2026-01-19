@@ -25,23 +25,29 @@ rules([
     'name' => ['required', 'string', 'max:255'],
     'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
     'phone' => ['nullable', 'string', 'max:20'],
-    'birthday' => ['nullable', 'date', 'before:today'],
-    'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
+    'birthday' => ['required', 'date', 'before:today'],
+    'password' => ['required', 'string', 'confirmed', 'min:8'],
 ]);
 
 $register = function () {
-    $validated = $this->validate();
+    try {
+        $validated = $this->validate();
 
-    $validated['password'] = Hash::make($validated['password']);
+        $validated['password'] = Hash::make($validated['password']);
 
-    event(new Registered($user = User::create($validated)));
+        $user = User::create($validated);
+        
+        event(new Registered($user));
 
-    // No auto-login: el usuario debe iniciar sesión manualmente
-    // Auth::login($user);
+        // No auto-login: el usuario debe iniciar sesión manualmente
+        // Auth::login($user);
 
-    session()->flash('status', '¡Cuenta creada! Por favor ingresa.');
+        session()->flash('status', '¡Cuenta creada exitosamente! Por favor inicia sesión.');
 
-    $this->redirect(route('login', absolute: false), navigate: true);
+        return $this->redirect(route('login'), navigate: true);
+    } catch (\Exception $e) {
+        dd("Error al registrar: " . $e->getMessage());
+    }
 };
 
 ?>
