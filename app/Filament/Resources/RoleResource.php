@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class RoleResource extends BaseRoleResource
 {
+    protected static ?string $navigationGroup = 'Administración';
     /**
      * Filtrar roles críticos que no deben ser editados desde el panel.
      * Excluye: super_admin y cliente
