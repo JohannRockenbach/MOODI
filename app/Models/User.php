@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes; // <-- 1. IMPORTANTE: Importar el Trait
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -114,6 +115,14 @@ class User extends Authenticatable implements FilamentUser
     public function closedCajas(): HasMany
     {
         return $this->hasMany(Caja::class, 'closing_user_id');
+    }
+
+    /**
+     * Un usuario puede tener UN perfil de cliente (creado al registrarse via web).
+     */
+    public function cliente(): HasOne
+    {
+        return $this->hasOne(Cliente::class);
     }
 
     // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
