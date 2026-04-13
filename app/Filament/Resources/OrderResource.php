@@ -33,10 +33,21 @@ class OrderResource extends Resource
     // Optimización N+1: Eager loading de relaciones
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            // Filtrar solo registros del restaurante ID = 1
-            ->where('restaurant_id', 1)
+        $query = parent::getEloquentQuery()
             ->with(['user', 'table', 'orderProducts.product', 'customer']);
+
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        $isGlobalAdmin = $user && $user->hasRole('super_admin');
+
+        if (! $isGlobalAdmin) {
+            $restaurantId = $user?->restaurant_id;
+            if ($restaurantId) {
+                $query->where('restaurant_id', $restaurantId);
+            }
+        }
+
+        return $query;
     }
 
     public static function form(Form $form): Form
@@ -396,19 +407,19 @@ class OrderResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'pending' => 'warning',
                         'processing' => 'info',
                         'completed' => 'success',
                         'cancelled' => 'danger',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'pending' => 'Pendiente',
                         'processing' => 'En Proceso',
                         'completed' => 'Completado',
                         'cancelled' => 'Cancelado',
-                        default => ucfirst($state),
+                        default => $state ? ucfirst($state) : '—',
                     })
                     ->sortable()
                     ->searchable(),
@@ -435,7 +446,8 @@ class OrderResource extends Resource
                     ->label('Mozo')
                     ->sortable()
                     ->searchable()
-                    ->default('N/A'),
+                    ->formatStateUsing(fn ($state) => $state ?? 'Pedido Web')
+                    ->default('Pedido Web'),
                 
                 Tables\Columns\TextColumn::make('total')
                     ->label('Total')

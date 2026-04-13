@@ -33,8 +33,16 @@ class KitchenDashboard extends Page
     {
         $bebidasCategoryId = \App\Models\Category::where('name', 'Bebidas')->first()?->id;
 
-        $baseQuery = Order::where('restaurant_id', 1)
-            ->with(['orderProducts.product.category', 'table']);
+        /** @var \App\Models\User|null $user */
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $isSuperAdmin = $user && $user->hasRole('super_admin');
+        $restaurantId = $user?->restaurant_id;
+
+        $baseQuery = Order::with(['orderProducts.product.category', 'table']);
+
+        if (! $isSuperAdmin && $restaurantId) {
+            $baseQuery->where('restaurant_id', $restaurantId);
+        }
 
         // Si hay categoría "Bebidas", filtramos
         if ($bebidasCategoryId) {

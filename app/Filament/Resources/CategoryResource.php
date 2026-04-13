@@ -186,7 +186,7 @@ class CategoryResource extends Resource
                             if (!$reassign && !$deleteProducts) {
                                 foreach ($records as $record) {
                                     /** @var \App\Models\Category $record */
-                                    $productCount = \App\Models\Product::where('category_id', $record->id)->count();
+                                    $productCount = \App\Models\Product::withTrashed()->where('category_id', $record->id)->count();
                                     if ($productCount > 0) {
                                         \Filament\Notifications\Notification::make()
                                             ->danger()
@@ -218,6 +218,12 @@ class CategoryResource extends Resource
                                             $product->forceDelete();
                                         }
                                     }
+
+                                    // Siempre purgar productos soft-deleted restantes para evitar FK violation
+                                    \App\Models\Product::onlyTrashed()
+                                        ->where('category_id', $record->id)
+                                        ->get()
+                                        ->each(fn ($p) => $p->forceDelete());
 
                                     $record->delete();
                                 }

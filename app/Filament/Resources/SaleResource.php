@@ -13,6 +13,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 use function __;
 
 class SaleResource extends Resource
@@ -211,7 +212,8 @@ class SaleResource extends Resource
                     ->label('Cajero')
                     ->sortable()
                     ->searchable()
-                    ->default('N/A')
+                    ->formatStateUsing(fn ($state) => $state ?? 'Auto-gestionado')
+                    ->default('Auto-gestionado')
                     ->icon('heroicon-o-user'),
 
                 // Fecha de Creación
@@ -285,9 +287,20 @@ class SaleResource extends Resource
     // Filtrar solo registros del restaurante ID = 1 + Optimización N+1
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()
-            ->where('restaurant_id', 1) // Sistema de restaurante único
-            ->with(['order', 'caja', 'cashier']) // Optimización N+1 para relaciones
-            ->withCount('discounts'); // Optimización N+1 para conteo de descuentos
+        $query = parent::getEloquentQuery()
+            ->with(['order', 'caja', 'cashier'])
+            ->withCount('discounts');
+
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        $isGlobalAdmin = $user && $user->hasRole('super_admin');
+
+        $restaurantId = $user?->restaurant_id;
+
+        if (! $isGlobalAdmin && $restaurantId) {
+            $query->where('restaurant_id', $restaurantId);
+        }
+
+        return $query;
     }
 }
