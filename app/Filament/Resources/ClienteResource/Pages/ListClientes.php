@@ -12,7 +12,8 @@ class ListClientes extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        $isViewingDeleted = data_get(request()->query(), 'tableFilters.trashed.value') === 'only_trashed';
+        $trashedFilterValue = data_get(request()->query(), 'tableFilters.trashed.value');
+        $isViewingDeleted = in_array($trashedFilterValue, [false, 0, '0'], true);
 
         return [
             Actions\Action::make('toggleDeletedClientes')
@@ -34,7 +35,7 @@ class ListClientes extends ListRecords
         return static::getResource()::getUrl('index', [
             'tableFilters' => [
                 'trashed' => [
-                    'value' => 'only_trashed',
+                    'value' => '0',
                 ],
             ],
         ]);
