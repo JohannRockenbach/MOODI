@@ -40,7 +40,7 @@ return [
             'rainy' => [
                 'discount' => 15,   // % de descuento
                 'coupon_prefix' => 'LLUVIA',
-                'products' => ['Combo', 'Menu', 'Hamburguesa', 'Empanada', 'Pizza'],
+                'products' => ['Combo', 'Menu', 'Hamburguesa', 'Empanada', 'Pizza', 'Bebidas', 'Coca', 'Pinta'],
                 'min_stock' => 12,
             ],
             

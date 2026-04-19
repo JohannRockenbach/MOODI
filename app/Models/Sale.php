@@ -69,8 +69,17 @@ class Sale extends Model
             if (empty($sale->caja_id) && ! empty($sale->restaurant_id)) {
                 $caja = Caja::where('restaurant_id', $sale->restaurant_id)
                     ->where('status', 'abierta')
+                    ->whereDate('opening_date', now()->toDateString())
                     ->latest('opening_date')
                     ->first();
+
+                // Fallback de seguridad para no romper flujos legacy
+                if (! $caja) {
+                    $caja = Caja::where('restaurant_id', $sale->restaurant_id)
+                        ->where('status', 'abierta')
+                        ->latest('opening_date')
+                        ->first();
+                }
 
                 if ($caja) {
                     $sale->caja_id = $caja->id;

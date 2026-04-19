@@ -23,10 +23,16 @@ $login = function () {
 ?>
 
 <div>
+    <!-- Título -->
+    <div class="mb-6 text-center">
+        <h2 class="text-2xl font-black text-foodie-text mb-2">Iniciar Sesión</h2>
+        <p class="text-sm text-foodie-text-light">Ingresa tus credenciales para continuar</p>
+    </div>
+
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form wire:submit="login">
+    <form wire:submit="login" class="space-y-5">
         <!-- Email Address -->
         <div>
             <x-input-label for="email" :value="__('Email')" />
@@ -35,7 +41,7 @@ $login = function () {
         </div>
 
         <!-- Password -->
-        <div class="mt-4">
+        <div>
             <x-input-label for="password" :value="__('Password')" />
 
             <x-text-input wire:model="form.password" id="password" class="block mt-1 w-full"
@@ -47,21 +53,21 @@ $login = function () {
         </div>
 
         <!-- Remember Me -->
-        <div class="block mt-4">
+        <div class="flex items-center justify-between">
             <label for="remember" class="inline-flex items-center">
-                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded bg-gray-800 border-gray-600 text-orange-600 shadow-sm focus:ring-orange-500 focus:ring-offset-gray-900" name="remember">
-                <span class="ms-2 text-sm text-gray-300">{{ __('Remember me') }}</span>
+                <input wire:model="form.remember" id="remember" type="checkbox" class="rounded border-foodie-orange-300 text-foodie-orange-600 shadow-sm focus:ring-foodie-orange-500" name="remember">
+                <span class="ms-2 text-sm text-foodie-text font-medium">{{ __('Remember me') }}</span>
             </label>
-        </div>
 
-        <div class="flex items-center justify-end mt-4">
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-300 hover:text-orange-400 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 focus:ring-offset-gray-900 transition duration-150" href="{{ route('password.request') }}" wire:navigate>
+                <a class="text-sm text-foodie-orange-600 hover:text-foodie-orange-700 font-semibold hover:underline transition" href="{{ route('password.request') }}" wire:navigate>
                     {{ __('Forgot your password?') }}
                 </a>
             @endif
+        </div>
 
-            <x-primary-button class="ms-3">
+        <div class="pt-2">
+            <x-primary-button class="w-full justify-center">
                 {{ __('Log in') }}
             </x-primary-button>
         </div>
