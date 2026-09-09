@@ -119,6 +119,7 @@ class AuthModal extends Component
 
         $cliente->fill([
             'user_id' => $user->id,
+            'email' => $user->email, // clientes.email es NOT NULL; sin esto el registro falla.
             'name' => $user->name,
             'phone' => $user->phone ?? null,
             'birthday' => $user->birthday ?? null,

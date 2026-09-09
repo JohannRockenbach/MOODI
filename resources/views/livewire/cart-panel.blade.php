@@ -36,6 +36,12 @@ new class extends Component
     #[On('cart-add')]
     public function addToCart($productId): void
     {
+        // El botón de la home dispara Livewire.dispatch('cart-add', { productId: X })
+        // y Livewire puede entregar el payload como array/objeto en vez del id suelto.
+        if (is_array($productId) || is_object($productId)) {
+            $productId = (int) data_get($productId, 'productId', 0);
+        }
+
         $productId = (int) $productId;
         $product = Product::find($productId);
 
