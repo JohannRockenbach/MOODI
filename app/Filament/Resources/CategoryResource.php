@@ -55,6 +55,21 @@ class CategoryResource extends Resource
                             ->placeholder('Descripción opcional de la categoría...')
                             ->rows(3)
                             ->columnSpanFull(),
+
+                        Forms\Components\Select::make('parent_id')
+                            ->label('Categoría padre (subcategoría de)')
+                            ->options(function (?Category $record): array {
+                                return Category::query()
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Ninguna (categoría principal)')
+                            ->helperText('Deja vacío para una categoría principal. Si eliges una padre, esta categoría se convierte en subcategoría.')
+                            ->columnSpanFull(),
                     ])
                     ->collapsible(),
                 

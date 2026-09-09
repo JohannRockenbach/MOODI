@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource\Pages;
 use App\Filament\Resources\ProductResource\RelationManagers;
 use App\Models\Category; // <-- 1. Importar Category
 use App\Models\Restaurant; // <-- 2. Importar Restaurant
+use App\Models\Recipe; // Para el vínculo Producto↔Receta
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -61,6 +62,14 @@ class ProductResource extends Resource
                     ->required()
                     ->numeric()
                     ->prefix('$'),
+
+                Forms\Components\Select::make('recipe_id')
+                    ->label('Receta')
+                    ->options(Recipe::all()->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Si el producto es elaborado (ej. Hamburguesa), asígnalo a su receta para calcular el stock real desde los ingredientes. Dejar vacío para productos de reventa (ej. Coca-Cola).')
+                    ->columnSpanFull(),
 
                 Forms\Components\TextInput::make('preparation_time_minutes')
                     ->label('Tiempo de Preparación (minutos)')
