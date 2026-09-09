@@ -112,8 +112,9 @@ class Product extends Model
                 }
 
                 // Si el producto SÍ tiene receta (ej: Hamburguesa, producto elaborado)
-                // Cargar la receta con sus ingredientes y las cantidades requeridas
-                $recipe = $this->recipe()->with('ingredients')->first();
+                // Cargar la receta con sus ingredientes y los LOTES (eager-load para
+                // evitar N+1 por ingrediente).
+                $recipe = $this->recipe()->with('ingredients.batches')->first();
 
                 // Si no existe la receta o no tiene ingredientes, retornar 0
                 if (!$recipe || $recipe->ingredients->isEmpty()) {
@@ -126,8 +127,8 @@ class Product extends Model
 
                 foreach ($recipe->ingredients as $ingredient) {
                     $requiredAmount = $ingredient->pivot->required_amount;
-                    // ACTUALIZADO: Usar el nuevo sistema de lotes
-                    $availableStock = $ingredient->batches()->sum('quantity');
+                    // Stock disponible: lotes NO vencidos (los vencidos NO son stock sano).
+                    $availableStock = $ingredient->availableStock();
 
                     // Si el ingrediente no tiene stock o la cantidad requerida es 0, no se puede hacer
                     if ($requiredAmount <= 0) {

@@ -84,14 +84,14 @@ class MarketingOverview extends BaseWidget
         $expiringBatches = IngredientBatch::where('quantity', '>', 0)
             ->where('expiration_date', '<=', now()->addDays(3))
             ->where('expiration_date', '>=', now())
-            ->whereHas('ingredient', fn($q) => $q->whereNotIn('name', $ignoredIngredients))
+            ->whereHas('ingredient', fn($q) => $q->where('restaurant_id', 1)->whereNotIn('name', $ignoredIngredients))
             ->count();
 
         // Agrupar por ingrediente único
         $uniqueIngredients = IngredientBatch::where('quantity', '>', 0)
             ->where('expiration_date', '<=', now()->addDays(3))
             ->where('expiration_date', '>=', now())
-            ->whereHas('ingredient', fn($q) => $q->whereNotIn('name', $ignoredIngredients))
+            ->whereHas('ingredient', fn($q) => $q->where('restaurant_id', 1)->whereNotIn('name', $ignoredIngredients))
             ->with('ingredient')
             ->get()
             ->unique('ingredient_id')

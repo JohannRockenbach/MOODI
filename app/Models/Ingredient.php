@@ -74,4 +74,24 @@ class Ingredient extends Model
     {
         return (float) $this->batches()->sum('quantity');
     }
+
+    /**
+     * Stock DISPONIBLE del ingrediente: suma de lotes NO vencidos.
+     *
+     * - Si la relación batches ya está cargada (eager-load), calcula sobre la
+     *   colección en memoria (sin N+1). Si no, hace una query con filtro de vencidos.
+     * - Un lote con expiration_date en el pasado NO cuenta como stock sano.
+     * - Un lote sin expiration_date (null) cuenta como disponible (no vencido).
+     */
+    public function availableStock(): float
+    {
+        $batches = $this->relationLoaded('batches')
+            ? $this->batches
+            : $this->batches()->get();
+
+        return (float) $batches
+            ->filter(fn (IngredientBatch $batch) => $batch->expiration_date === null
+                || $batch->expiration_date->isFuture())
+            ->sum('quantity');
+    }
 }
