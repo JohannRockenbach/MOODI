@@ -24,7 +24,7 @@ class OrderFactory extends Factory
      */
     public function definition(): array
     {
-        $statuses = ['pending', 'en_proceso', 'servido', 'pagado', 'cancelado'];
+        $statuses = ['pending', 'processing', 'ready_for_pickup', 'completed', 'cancelled'];
         $types = ['delivery', 'local', 'para_llevar'];
 
         return [
@@ -117,7 +117,7 @@ class OrderFactory extends Factory
     public function inProgress(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'en_proceso',
+            'status' => 'processing',
         ]);
     }
 
@@ -127,7 +127,7 @@ class OrderFactory extends Factory
     public function served(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'servido',
+            'status' => 'ready_for_pickup',
         ]);
     }
 
@@ -137,7 +137,7 @@ class OrderFactory extends Factory
     public function paid(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'pagado',
+            'status' => 'completed',
         ]);
     }
 
@@ -147,7 +147,7 @@ class OrderFactory extends Factory
     public function cancelled(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'cancelado',
+            'status' => 'cancelled',
         ]);
     }
 

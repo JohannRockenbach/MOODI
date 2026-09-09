@@ -16,7 +16,7 @@
         /* Asegurar que las columnas estén lado a lado */
         .kitchen-grid {
             display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
+            grid-template-columns: 1fr 1fr 1fr !important;
             gap: 1rem !important;
             height: 100% !important;
         }
@@ -85,8 +85,8 @@
                                 @endforeach
                             </div>
 
-                            {{-- Botón --}}
-                            <div style="padding: 0 0.75rem 0.5rem;">
+                            {{-- Botones --}}
+                            <div style="padding: 0 0.75rem 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
                                 <button 
                                     wire:click="startProcessing({{ $order->id }})"
                                     wire:loading.attr="disabled"
@@ -94,6 +94,14 @@
                                     onmouseover="this.style.background='#f3f4f6'"
                                     onmouseout="this.style.background='white'">
                                     ▶️ EMPEZAR
+                                </button>
+                                <button 
+                                    wire:click="cancelOrder({{ $order->id }})"
+                                    wire:loading.attr="disabled"
+                                    style="width: 100%; background: #dc2626; color: white; font-weight: 900; font-size: 0.875rem; padding: 0.5rem; border-radius: 0.375rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
+                                    onmouseover="this.style.background='#b91c1c'"
+                                    onmouseout="this.style.background='#dc2626'">
+                                    ❌ CANCELAR
                                 </button>
                             </div>
                         </div>
@@ -105,7 +113,7 @@
                 </div>
             </div>
 
-            {{-- COLUMNA DERECHA --}}
+            {{-- COLUMNA CENTRAL - EN PREPARACIÓN --}}
             <div class="column-container">
                 <div style="background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); color: white; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                     <h2 style="font-size: 1.125rem; font-weight: 700; margin: 0;">🔥 EN PREPARACIÓN</h2>
@@ -153,8 +161,8 @@
                                 @endforeach
                             </div>
 
-                            {{-- Botón --}}
-                            <div style="padding: 0 0.75rem 0.5rem;">
+                            {{-- Botones --}}
+                            <div style="padding: 0 0.75rem 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
                                 <button 
                                     wire:click="markAsReady({{ $order->id }})"
                                     wire:loading.attr="disabled"
@@ -163,11 +171,87 @@
                                     onmouseout="this.style.background='white'">
                                     ✅ LISTO
                                 </button>
+                                <button 
+                                    wire:click="cancelOrder({{ $order->id }})"
+                                    wire:loading.attr="disabled"
+                                    style="width: 100%; background: #dc2626; color: white; font-weight: 900; font-size: 0.875rem; padding: 0.5rem; border-radius: 0.375rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
+                                    onmouseover="this.style.background='#b91c1c'"
+                                    onmouseout="this.style.background='#dc2626'">
+                                    ❌ CANCELAR
+                                </button>
                             </div>
                         </div>
                     @empty
                         <div style="background: #f3f4f6; padding: 2rem; text-align: center; border-radius: 0.5rem; color: #6b7280;">
                             🍳 No hay pedidos en preparación
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            {{-- COLUMNA DERECHA - LISTO PARA RETIRAR --}}
+            <div class="column-container">
+                <div style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: white; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <h2 style="font-size: 1.125rem; font-weight: 700; margin: 0;">✅ LISTO PARA RETIRAR</h2>
+                    <span style="background: white; color: #16a34a; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 700; font-size: 0.875rem;">
+                        {{ $readyOrders->count() }}
+                    </span>
+                </div>
+
+                <div class="orders-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    @forelse ($readyOrders as $order)
+                        @php
+                            $style = match($order->type) {
+                                'salon' => ['bg' => '#3b82f6', 'icon' => '🏠', 'label' => 'MESA ' . ($order->table->number ?? 'N/A')],
+                                'delivery' => ['bg' => '#10b981', 'icon' => '🏍️', 'label' => 'DELIVERY'],
+                                'para_llevar' => ['bg' => '#f59e0b', 'icon' => '📦', 'label' => 'PARA LLEVAR'],
+                                default => ['bg' => '#6b7280', 'icon' => '📄', 'label' => 'PEDIDO']
+                            };
+                        @endphp
+
+                        <div class="order-card" style="background: {{ $style['bg'] }}; color: white; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.15);" wire:key="ready-{{ $order->id }}">
+                            
+                            {{-- Header --}}
+                            <div style="background: rgba(0,0,0,0.15); padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="font-size: 1.25rem;">{{ $style['icon'] }}</span>
+                                    <span style="font-weight: 900; font-size: 1rem;">#{{ $order->id }}</span>
+                                    <span style="font-size: 0.75rem; font-weight: 600;">{{ $style['label'] }}</span>
+                                </div>
+                                <span style="font-size: 0.75rem; background: rgba(255,255,255,0.25); padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-weight: 600;">
+                                    {{ $order->created_at->format('H:i') }}
+                                </span>
+                            </div>
+
+                            {{-- Productos --}}
+                            <div style="padding: 0.5rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem;">
+                                @foreach ($order->orderProducts->where('product.category.name', '!=', 'Bebidas') as $item)
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="background: rgba(0,0,0,0.3); color: white; font-weight: 900; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; min-width: 2rem; text-align: center;">
+                                            {{ $item->quantity }}x
+                                        </span>
+                                        <span style="font-weight: 600; font-size: 0.875rem;">
+                                            {{ $item->product->name ?? 'Producto' }}
+                                        </span>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            {{-- Botón --}}
+                            <div style="padding: 0 0.75rem 0.5rem;">
+                                <button 
+                                    wire:click="markAsCompleted({{ $order->id }})"
+                                    wire:loading.attr="disabled"
+                                    style="width: 100%; background: white; color: #16a34a; font-weight: 900; font-size: 0.875rem; padding: 0.5rem; border-radius: 0.375rem; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: all 0.2s;"
+                                    onmouseover="this.style.background='#f0fdf4'"
+                                    onmouseout="this.style.background='white'">
+                                    ✅ ENTREGADO
+                                </button>
+                            </div>
+                        </div>
+                    @empty
+                        <div style="background: #f3f4f6; padding: 2rem; text-align: center; border-radius: 0.5rem; color: #6b7280;">
+                            📭 No hay pedidos listos
                         </div>
                     @endforelse
                 </div>
