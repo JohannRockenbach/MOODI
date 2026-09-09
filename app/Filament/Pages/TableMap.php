@@ -178,9 +178,18 @@ class TableMap extends Page
             return;
         }
 
-        // Liberar la mesa
-        $table->update(['status' => 'available']);
-        
+        // Liberar la mesa con la máquina de estados centralizada.
+        // - 'occupied': release() la pasa a 'available' (o 'reserved' si hay reservas
+        //   futuras vigentes), validando que no queden pedidos activos.
+        // - 'reserved': se libera manualmente solo si no hay reservas futuras vigentes;
+        //   si las hay, se mantiene reservada (un admin debe gestionar la reserva).
+        if ($table->status === Table::STATUS_OCCUPIED) {
+            $table->release();
+        } elseif ($table->status === Table::STATUS_RESERVED && ! $table->hasFutureActiveReservations()) {
+            $table->update(['status' => Table::STATUS_AVAILABLE]);
+        }
+        // 'available' / 'maintenance': no se tocan (maintenance fuera de servicio).
+
         Notification::make()
             ->title('Mesa Liberada')
             ->body("Mesa #{$table->number} ahora está disponible")
@@ -326,10 +335,18 @@ class TableMap extends Page
                             }
                         }
                     }
+
+                    // 🔒 El pedido cobrado deja de estar activo: pasa a 'completed'.
+                    // Sin esto, el mapa seguiría mostrando pedidos activos en la mesa
+                    // y la mesa no se liberaría correctamente tras el cobro.
+                    $order->update(['status' => 'completed']);
                 }
 
-                // Liberar la mesa
-                $table->update(['status' => 'available']);
+                // Liberar la mesa con la máquina de estados centralizada.
+                // release() vuelve 'occupied' -> 'available' (o 'reserved' si hay
+                // reservas futuras vigentes). Si la mesa no partió de 'occupied'
+                // (estado legacy) no se toca nada.
+                $table->release();
             });
 
             Notification::make()

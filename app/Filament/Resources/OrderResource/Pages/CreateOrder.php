@@ -178,6 +178,25 @@ class CreateOrder extends CreateRecord
     }
 
     /**
+     * Marcar la mesa como OCUPADA al crear un pedido de salón.
+     *
+     * La máquina de estados está centralizada en Table::occupy(): solo avanza
+     * desde 'available'/'reserved' y nunca pisa una mesa ya ocupada o en
+     * mantenimiento.
+     */
+    protected function afterCreate(): void
+    {
+        $record = $this->record;
+
+        // Solo pedidos de salón con mesa asignada ocupan una mesa.
+        if (! $record || $record->type !== 'salon' || ! $record->table_id) {
+            return;
+        }
+
+        \App\Models\Table::find($record->table_id)?->occupy();
+    }
+
+    /**
      * Método público para que el formulario verifique si está bloqueado
      */
     public function isFromTableMap(): bool
