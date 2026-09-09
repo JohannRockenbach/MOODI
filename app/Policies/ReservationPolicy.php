@@ -9,7 +9,7 @@ class ReservationPolicy
 {
     public function before(User $user)
     {
-        if ($user->hasRole('admin')) {
+        if ($user->hasRole('super_admin')) {
             return true;
         }
     }
@@ -21,7 +21,7 @@ class ReservationPolicy
 
     public function view(User $user, Reservation $reservation): bool
     {
-        return $user->restaurant_id === $reservation->restaurant_id || $user->hasRole('admin');
+        return $user->restaurant_id === $reservation->restaurant_id || $user->hasRole('super_admin');
     }
 
     public function create(User $user): bool
@@ -31,11 +31,11 @@ class ReservationPolicy
 
     public function update(User $user, Reservation $reservation): bool
     {
-        return $user->hasRole('admin') || $user->id === $reservation->customer_id;
+        return $user->hasRole('super_admin') || $user->id === $reservation->customer_id;
     }
 
     public function delete(User $user, Reservation $reservation): bool
     {
-        return $user->hasRole('admin');
+        return $user->hasRole('super_admin');
     }
 }

@@ -37,10 +37,18 @@ class TableMap extends Page
     public float $discountAmount = 0;
 
     // Visibilidad según rol
+    public static function canAccess(): bool
+    {
+        // Mapa de mesas es operativo: super_admin, Mozo y Cajero.
+        $user = auth()->user();
+
+        return $user !== null && $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         // Visible para todos los usuarios autenticados en el panel admin
-        // El acceso ya está protegido por el middleware de Filament
+        // El acceso ya está protegido por canAccess() y el middleware de Filament
         return true;
     }
 
@@ -107,9 +115,21 @@ class TableMap extends Page
         $this->dispatch('close-modal', id: 'table-details');
     }
 
+    // Verificación de acceso para acciones operativas del mapa (staff).
+    // La página ya exige rol vía canAccess(); esto protege las acciones por método.
+    private function authorizeStaffAccess(): void
+    {
+        abort_unless(
+            auth()->user()?->hasAnyRole(['super_admin', 'Mozo', 'Cajero']),
+            403
+        );
+    }
+
     // Crear nuevo pedido (SIN cambiar estado aquí)
     public function createOrderForTable(): void
     {
+        $this->authorizeStaffAccess();
+
         if (!$this->selectedTableId) {
             return;
         }
@@ -123,6 +143,8 @@ class TableMap extends Page
     // Ir a editar un pedido existente
     public function editOrder(int $orderId): void
     {
+        $this->authorizeStaffAccess();
+
         $this->redirect(
             \App\Filament\Resources\OrderResource::getUrl('edit', [
                 'record' => $orderId,
@@ -134,6 +156,8 @@ class TableMap extends Page
     // Liberar una mesa
     public function freeTable(int $tableId): void
     {
+        $this->authorizeStaffAccess();
+
         $table = Table::with('orders')->find($tableId);
         
         if (!$table) {
@@ -222,6 +246,9 @@ class TableMap extends Page
     // Procesar el cobro de la mesa
     public function cobrarMesa(): void
     {
+        // Solo Cajero/super_admin pueden registrar ventas (SalePolicy::create).
+        abort_unless(auth()->user()?->can('create', \App\Models\Sale::class), 403);
+
         if (!$this->selectedTableId) {
             return;
         }
@@ -313,7 +340,7 @@ class TableMap extends Page
 
             // Refrescar y cerrar modales
             $this->loadTables();
-            $this->dispatch('close-modal', id: 'cobrar-mesa-' . $this->selectedTableId);
+            $this->dispatch('close-modal', id: 'cobrar-mesa');
             $this->dispatch('close-modal', id: 'table-details');
             
             // Limpiar variables

@@ -11,6 +11,37 @@ class Table extends Model
 {
     use HasFactory;
 
+    // Estados de mesa usados por la app (valores en inglés; en DB pueden existir
+    // valores legacy en español de migraciones viejas, no se tocan sin migración).
+    public const STATUS_AVAILABLE = 'available';
+    public const STATUS_OCCUPIED = 'occupied';
+    public const STATUS_RESERVED = 'reserved';
+    public const STATUS_MAINTENANCE = 'maintenance';
+
+    /**
+     * Scope: mesas disponibles (status = available).
+     */
+    public function scopeAvailable($query)
+    {
+        return $query->where('status', self::STATUS_AVAILABLE);
+    }
+
+    /**
+     * Scope: mesas ocupadas (status = occupied).
+     */
+    public function scopeOccupied($query)
+    {
+        return $query->where('status', self::STATUS_OCCUPIED);
+    }
+
+    /**
+     * Scope: mesas reservadas (status = reserved).
+     */
+    public function scopeReserved($query)
+    {
+        return $query->where('status', self::STATUS_RESERVED);
+    }
+
     protected $fillable = [
         'number',
         'capacity',
