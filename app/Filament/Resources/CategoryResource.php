@@ -136,7 +136,8 @@ class CategoryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                // Ver categorías eliminadas (soft deletes).
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\Action::make('ver_productos')
@@ -154,6 +155,9 @@ class CategoryResource extends Resource
                     ->visible(fn (Category $record): bool => $record->products->count() > 0),
                 
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\RestoreAction::make()
+                    ->visible(fn ($record) => $record->trashed()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

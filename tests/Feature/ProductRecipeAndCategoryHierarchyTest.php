@@ -120,4 +120,32 @@ class ProductRecipeAndCategoryHierarchyTest extends TestCase
         $this->assertSame($medio->id, $hoja->fresh()->parent_id);
         $this->assertSame($raiz->id, $medio->fresh()->parent_id);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // SOFT DELETES: ver/restaurar categorías eliminadas
+    // ─────────────────────────────────────────────────────────────
+
+    public function test_categoria_sin_productos_ni_hijos_se_elimina_con_soft_delete(): void
+    {
+        $cat = Category::query()->create(['name' => 'Eliminable']);
+
+        $cat->delete();
+
+        $this->assertNotNull($cat->fresh()->deleted_at);
+        $this->assertTrue($cat->fresh()->trashed());
+        // Ocultas por defecto, pero visibles con withTrashed.
+        $this->assertNull(Category::query()->where('name', 'Eliminable')->first());
+        $this->assertNotNull(Category::query()->withTrashed()->where('name', 'Eliminable')->first());
+    }
+
+    public function test_categoria_eliminada_puede_restaurarse(): void
+    {
+        $cat = Category::query()->create(['name' => 'Restaurable']);
+        $cat->delete();
+
+        $cat->restore();
+
+        $this->assertNull($cat->fresh()->deleted_at);
+        $this->assertNotNull(Category::query()->where('name', 'Restaurable')->first());
+    }
 }

@@ -180,4 +180,128 @@ class ReportsPageTest extends TestCase
         $this->assertStringContainsString('Efectivo', $csv);
         $this->assertStringContainsString('1.000,00', $csv);
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // REPORTE DE CAJA (cierre de caja)
+    // ─────────────────────────────────────────────────────────────
+
+    public function test_reporte_caja_lista_cierres_del_rango(): void
+    {
+        $restaurant = $this->makeRestaurant(1);
+        $this->makeSale($restaurant, 1000, 'cash');
+        $user = \App\Models\User::factory()->create(['restaurant_id' => 1]);
+
+        // Crear una caja con ventas computables.
+        \App\Models\Caja::query()->create([
+            'restaurant_id' => 1,
+            'opening_user_id' => $user->id,
+            'closing_user_id' => $user->id,
+            'initial_balance' => 5000,
+            'final_balance' => 6500,
+            'status' => 'cerrada',
+            'opening_date' => now()->subDay(),
+            'closing_date' => now()->subDay()->addHours(8),
+        ]);
+
+        $report = $this->makeReport()->getCajaReport();
+
+        $this->assertNotEmpty($report);
+        $this->assertSame('Cerrada', $report[0]['status']);
+        $this->assertSame(5000.0, $report[0]['opening_amount']);
+        $this->assertSame(6500.0, $report[0]['closing_amount']);
+    }
+
+    public function test_reporte_caja_filtra_por_rango_de_fechas(): void
+    {
+        $restaurant = $this->makeRestaurant(1);
+        $user = \App\Models\User::factory()->create(['restaurant_id' => 1]);
+
+        \App\Models\Caja::query()->create([
+            'restaurant_id' => 1,
+            'opening_user_id' => $user->id,
+            'closing_user_id' => $user->id,
+            'initial_balance' => 100,
+            'status' => 'cerrada',
+            'opening_date' => now()->subMonths(3),
+            'closing_date' => now()->subMonths(3)->addHours(8),
+        ]);
+
+        $report = $this->makeReport([
+            'from' => now()->subDays(30)->toDateString(),
+            'to' => now()->toDateString(),
+        ])->getCajaReport();
+
+        // Rango de 30 días: la caja de hace 3 meses queda fuera.
+        $this->assertEmpty($report);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // REPORTE DE PRODUCTOS (más/menos vendidos)
+    // ─────────────────────────────────────────────────────────────
+
+    public function test_reporte_productos_distingue_mas_y_menos_vendidos(): void
+    {
+        $restaurant = $this->makeRestaurant(1);
+        $user = \App\Models\User::factory()->create(['restaurant_id' => $restaurant->id]);
+        $table = Table::factory()->create(['restaurant_id' => $restaurant->id]);
+
+        $productA = Product::factory()->create([
+            'name' => 'Producto Top',
+            'restaurant_id' => $restaurant->id,
+            'price' => 100,
+            'stock' => 100,
+        ]);
+        $productB = Product::factory()->create([
+            'name' => 'Producto Bajo',
+            'restaurant_id' => $restaurant->id,
+            'price' => 100,
+            'stock' => 100,
+        ]);
+
+        // Crear órdenes SIN el factory (que agrega orderProducts propios),
+        // para controlar exactamente qué productos hay en el reporte.
+        $orderA = Order::query()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'completed',
+            'type' => 'salon',
+            'table_id' => $table->id,
+            'waiter_id' => $user->id,
+        ]);
+        OrderProduct::query()->create(['order_id' => $orderA->id, 'product_id' => $productA->id, 'quantity' => 8, 'price' => 100]);
+        Sale::query()->create(['restaurant_id' => $restaurant->id, 'order_id' => $orderA->id, 'total_amount' => 800, 'payment_method' => 'cash', 'status' => 'paid', 'cashier_id' => $user->id]);
+
+        $orderB = Order::query()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'completed',
+            'type' => 'salon',
+            'table_id' => $table->id,
+            'waiter_id' => $user->id,
+        ]);
+        OrderProduct::query()->create(['order_id' => $orderB->id, 'product_id' => $productB->id, 'quantity' => 1, 'price' => 100]);
+        Sale::query()->create(['restaurant_id' => $restaurant->id, 'order_id' => $orderB->id, 'total_amount' => 100, 'payment_method' => 'cash', 'status' => 'paid', 'cashier_id' => $user->id]);
+
+        $report = $this->makeReport()->getProductReport();
+
+        $this->assertSame('Producto Top', $report['top'][0]['name']);
+        $this->assertGreaterThan(1, $report['top'][0]['quantity']);
+        $this->assertSame('Producto Bajo', $report['bottom'][0]['name']);
+        $this->assertSame(1, $report['bottom'][0]['quantity']);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // REPORTE DE GANANCIAS (mensual/semanal)
+    // ─────────────────────────────────────────────────────────────
+
+    public function test_reporte_ganancias_incluye_mes_actual(): void
+    {
+        $restaurant = $this->makeRestaurant(1);
+        $this->makeSale($restaurant, 2500, 'cash');
+
+        $report = $this->makeReport()->getProfitReport();
+
+        $this->assertCount(6, $report['months']);
+        $this->assertCount(8, $report['weeks']);
+        // El mes actual debe reflejar la venta.
+        $this->assertSame(2500.0, end($report['months'])['total']);
+    }
 }

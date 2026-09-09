@@ -141,6 +141,112 @@ class Reports extends Page
     ];
 
     // ─────────────────────────────────────────────────────────────
+    // Reporte de Caja: cierres de caja en el rango
+    // ─────────────────────────────────────────────────────────────
+
+    public function getCajaReport(): array
+    {
+        $cajas = \App\Models\Caja::query()
+            ->where('restaurant_id', 1)
+            ->when($this->from, fn ($q) => $q->whereDate('opening_date', '>=', $this->from))
+            ->when($this->to, fn ($q) => $q->whereDate('opening_date', '<=', $this->to))
+            ->withCount(['sales' => fn ($q) => $q->where('status', 'paid')])
+            ->get();
+
+        return $cajas->map(fn ($caja) => [
+            'id' => $caja->id,
+            'opened_at' => optional($caja->opening_date)->format('d/m/Y H:i'),
+            'closed_at' => optional($caja->closing_date)->format('d/m/Y H:i'),
+            'status' => $caja->status === 'abierta' ? 'Abierta' : 'Cerrada',
+            'opening_amount' => (float) (optional($caja)->initial_balance ?? 0),
+            'closing_amount' => (float) (optional($caja)->final_balance ?? 0),
+            'sales_count' => (int) ($caja->sales_count ?? 0),
+            'sales_total' => (float) $caja->computableSalesTotal(),
+            'difference' => (float) ((optional($caja)->final_balance ?? 0) - (optional($caja)->initial_balance ?? 0)),
+        ])->values()->all();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Reporte de Productos: más y menos vendidos en el rango
+    // ─────────────────────────────────────────────────────────────
+
+    public function getProductReport(): array
+    {
+        $saleIds = Sale::query()
+            ->where('restaurant_id', 1)
+            ->when($this->from, fn ($q) => $q->whereDate('created_at', '>=', $this->from))
+            ->when($this->to, fn ($q) => $q->whereDate('created_at', '<=', $this->to))
+            ->where('status', '!=', 'annulled')
+            ->pluck('id');
+
+        if ($saleIds->isEmpty()) {
+            return ['top' => [], 'bottom' => []];
+        }
+
+        $rows = DB::table('order_product as op')
+            ->join('orders as o', 'o.id', '=', 'op.order_id')
+            ->join('sales as s', 's.order_id', '=', 'o.id')
+            ->join('products as p', 'p.id', '=', 'op.product_id')
+            ->whereIn('s.id', $saleIds)
+            ->groupBy('p.id', 'p.name')
+            ->selectRaw('p.name, SUM(op.quantity) as total_quantity, SUM(op.quantity * op.price) as total_amount')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'quantity' => (int) $row->total_quantity,
+                'total' => (float) $row->total_amount,
+            ]);
+
+        return [
+            'top' => $rows->sortByDesc('quantity')->take(5)->values()->all(),
+            'bottom' => $rows->sortBy('quantity')->take(5)->values()->all(),
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Reporte de Ganancias: ingresos por mes / semana
+    // ─────────────────────────────────────────────────────────────
+
+    public function getProfitReport(): array
+    {
+        // Mensual: últimos 6 meses.
+        $months = collect(range(5, 0))->map(function ($i) {
+            $start = now()->startOfMonth()->subMonths($i);
+            $end = $start->copy()->endOfMonth();
+
+            return [
+                'label' => $start->format('M Y'),
+                'total' => $this->salesTotalBetween($start, $end),
+            ];
+        });
+
+        // Semanal: últimas 8 semanas (semana empieza lunes).
+        $weeks = collect(range(7, 0))->map(function ($i) {
+            $start = now()->startOfWeek()->subWeeks($i);
+            $end = $start->copy()->endOfWeek();
+
+            return [
+                'label' => $start->format('d/m').' - '.$end->format('d/m'),
+                'total' => $this->salesTotalBetween($start, $end),
+            ];
+        });
+
+        return [
+            'months' => $months->values()->all(),
+            'weeks' => $weeks->values()->all(),
+        ];
+    }
+
+    private function salesTotalBetween(\Illuminate\Support\Carbon $from, \Illuminate\Support\Carbon $to): float
+    {
+        return (float) Sale::query()
+            ->where('restaurant_id', 1)
+            ->whereBetween('created_at', [$from, $to])
+            ->where('status', '!=', 'annulled')
+            ->sum('total_amount');
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Exportación CSV (nativa, sin dependencias externas)
     // ─────────────────────────────────────────────────────────────
 
