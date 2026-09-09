@@ -24,6 +24,15 @@ class MarketingOverview extends BaseWidget
     protected static ?string $pollingInterval = '300s';
 
     /**
+     * Solo super_admin puede ver este widget: ejecuta 3 comandos artisan
+     * (envío de análisis de mercado) de forma síncrona.
+     */
+    public static function canView(): bool
+    {
+        return auth()->user()?->hasRole('super_admin') ?? false;
+    }
+
+    /**
      * Obtener las estadísticas de las 2 automatizaciones + botón de acción
      */
     protected function getStats(): array
