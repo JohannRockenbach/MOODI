@@ -1,16 +1,25 @@
-<div style="display:flex; align-items:center; gap:12px;">
-    <div style="font-size: 1.125rem; font-weight: 700; color: #16a34a;">
+<div
+    style="display:flex; align-items:center; justify-content:space-between; gap:0.875rem; border:1px solid #e5e7eb; border-radius:0.75rem; padding:0.75rem 0.875rem; background:linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);"
+>
+    <div style="display:flex; flex-direction:column; gap:0.125rem; min-width:0;">
+        <span style="font-size:0.75rem; color:#6b7280; font-weight:600; letter-spacing:0.02em; text-transform:uppercase;">
+            Balance en tiempo real
+        </span>
+
         @if(is_null($balance))
-            <span style="color: #6b7280;">-</span>
+            <span style="font-size:1.125rem; font-weight:700; color:#6b7280;">-</span>
         @else
-            <span>$ {{ number_format($balance, 2, ',', '.') }}</span>
+            <span style="font-size:1.25rem; font-weight:800; color:#15803d; line-height:1.1;">$ {{ number_format($balance, 2, ',', '.') }}</span>
         @endif
     </div>
-    <button 
-        wire:click="refreshBalance" 
+
+    <button
+        wire:click="refreshBalance"
         wire:loading.attr="disabled"
         type="button"
-        class="inline-flex items-center justify-center gap-1 font-medium rounded-lg border transition-colors outline-none focus:ring-offset-2 focus:ring-2 focus:ring-inset min-h-[2rem] px-3 text-sm text-gray-800 bg-white border-gray-300 hover:bg-gray-50 focus:ring-primary-600 dark:text-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700"
+        title="Actualizar balance"
+        aria-label="Actualizar balance"
+        class="inline-flex items-center justify-center font-medium rounded-lg border transition-colors outline-none focus:ring-offset-2 focus:ring-2 focus:ring-inset min-h-[2rem] text-gray-800 bg-white border-gray-300 hover:bg-gray-50 focus:ring-primary-600 dark:text-gray-200 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700"
         style="min-width: 2.5rem; height: 2.5rem; padding: 0.5rem;"
     >
         <svg wire:loading.remove wire:target="refreshBalance" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
