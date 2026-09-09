@@ -128,10 +128,8 @@ class User extends Authenticatable implements FilamentUser
     // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // Solo permite entrar a Johann y al Admin de respaldo
-        return in_array($this->email, [
-            'rockenbachjohann@gmail.com',
-            'admin@moodi.com',
-        ]);
+        // Panel access is granted by role (single-restaurant MOODI).
+        // 'cliente' role (web self-service) must NOT access the admin panel.
+        return $this->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 }
