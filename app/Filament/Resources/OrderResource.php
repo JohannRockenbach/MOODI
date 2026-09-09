@@ -699,7 +699,10 @@ class OrderResource extends Resource
                                 $discountAmounts = []; // Para guardar el monto de cada descuento
 
                                 if (! empty($discountIds)) {
-                                    $discounts = \App\Models\Discount::whereIn('id', $discountIds)->get();
+                                    // Solo descuentos activos pueden aplicarse (regla de negocio).
+                                    $discounts = \App\Models\Discount::whereIn('id', $discountIds)
+                                        ->where('is_active', true)
+                                        ->get();
 
                                     foreach ($discounts as $discount) {
                                         $discountAmount = 0;

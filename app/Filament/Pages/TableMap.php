@@ -238,7 +238,9 @@ class TableMap extends Page
             return;
         }
 
-        $discounts = \App\Models\Discount::whereIn('id', $this->selectedDiscounts)->get();
+        $discounts = \App\Models\Discount::whereIn('id', $this->selectedDiscounts)
+            ->where('is_active', true)
+            ->get();
         $totalDiscount = 0;
 
         foreach ($discounts as $discount) {
@@ -320,10 +322,12 @@ class TableMap extends Page
                         'sale_date' => now(),
                     ]);
 
-                    // Asociar descuentos proporcionalmente
+                    // Asociar descuentos proporcionalmente (solo si siguen activos)
                     if (!empty($this->selectedDiscounts)) {
                         foreach ($this->selectedDiscounts as $discountId) {
-                            $discount = \App\Models\Discount::find($discountId);
+                            $discount = \App\Models\Discount::where('id', $discountId)
+                                ->where('is_active', true)
+                                ->first();
                             if ($discount) {
                                 $discountValue = $discount->type === 'percentage'
                                     ? $orderTotal * ($discount->value / 100)

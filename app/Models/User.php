@@ -130,6 +130,6 @@ class User extends Authenticatable implements FilamentUser
     {
         // Panel access is granted by role (single-restaurant MOODI).
         // 'cliente' role (web self-service) must NOT access the admin panel.
-        return $this->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
+        return $this->hasAnyRole(['super_admin', 'Mozo', 'Cajero', 'Cocinero']);
     }
 }

@@ -14,6 +14,14 @@ class KitchenDashboard extends Page
     // Usar ruta de vista concisa bajo resources/views/filament/pages
     protected static string $view = 'filament.pages.kitchen-dashboard';
 
+    // La pantalla de cocina es operativa: super_admin y Cocinero.
+    public static function canAccess(array $parameters = []): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        return $user !== null && $user->hasAnyRole(['super_admin', 'Cocinero']);
+    }
+
     // Propiedades públicas expuestas a la vista / Livewire
     public $pendingOrders;
     public $processingOrders;
