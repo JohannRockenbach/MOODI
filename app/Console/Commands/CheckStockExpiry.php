@@ -63,7 +63,7 @@ class CheckStockExpiry extends Command
                 return [
                     'ingredient' => $ingredient,
                     'total_quantity' => $batches->sum('quantity'),
-                    'unit_cost' => $ingredient->unit_cost ?? 0,
+                    'unit_cost' => $ingredient->purchase_price ?? 0,
                 ];
             })
             ->sortByDesc('total_quantity')
@@ -100,7 +100,7 @@ class CheckStockExpiry extends Command
                 
                 // Variar costos según el estilo
                 $ingredientMultiplier = $variation['style'] === 'Burger XL' ? 4 : 3;
-                $baseCost = ($panBase->unit_cost ?? 50) + ($carneBase->unit_cost ?? 200) + (($ingredient->unit_cost ?? 0) * $ingredientMultiplier);
+                $baseCost = ($panBase->purchase_price ?? 50) + ($carneBase->purchase_price ?? 200) + (($ingredient->purchase_price ?? 0) * $ingredientMultiplier);
                 $suggestedPrice = round($baseCost * 1.30, 2);
                 
                 $suggestions[] = [
@@ -126,7 +126,7 @@ class CheckStockExpiry extends Command
         $this->line('');
         $this->info('📧 Enviando sugerencias...');
         
-        $admins = User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'administrador']))->get();
+        $admins = User::whereHas('roles', fn($q) => $q->where('name', 'super_admin'))->get();
 
         if ($admins->isEmpty()) {
             $this->warn('⚠️ No hay administradores.');

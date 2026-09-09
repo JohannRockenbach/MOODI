@@ -34,7 +34,7 @@ class CheckLoyaltyPromo extends Command
         $this->line('');
 
         $admins = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['super_admin', 'administrador']);
+            $query->where('name', 'super_admin');
         })->get();
 
         if ($admins->isEmpty()) {
