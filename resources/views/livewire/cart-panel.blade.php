@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Product;
+use App\Support\DisplayText;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
@@ -43,7 +44,7 @@ new class extends Component
         }
 
         $this->cartItems[$productId] = [
-            'name' => $product->name,
+            'name' => DisplayText::plain($product->name, 'Producto'),
             'price' => (float) $product->price,
             'quantity' => ($this->cartItems[$productId]['quantity'] ?? 0) + 1,
         ];
@@ -94,7 +95,7 @@ new class extends Component
 >
     <div class="absolute inset-0 bg-black/40" @click="open = false" aria-hidden="true"></div>
 
-    <aside class="relative h-full w-full max-w-md bg-white shadow-2xl flex flex-col" role="dialog" aria-modal="true" aria-label="Carrito de compras" @click.stop>
+    <aside class="relative h-full w-full max-w-full sm:max-w-md bg-white shadow-2xl flex flex-col overflow-x-hidden" role="dialog" aria-modal="true" aria-label="Carrito de compras" @click.stop>
         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
             <h2 class="text-xl font-black text-gray-900">Tu Pedido</h2>
             <button
@@ -120,10 +121,13 @@ new class extends Component
             @endif
 
             @foreach($cartItems as $id => $item)
+                @php
+                    $safeItemName = \App\Support\DisplayText::plain($item['name'] ?? null, 'Producto');
+                @endphp
                 <article class="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <h3 class="font-bold text-gray-900 break-words">{{ $item['name'] }}</h3>
+                            <h3 class="font-bold text-gray-900 break-words">{{ $safeItemName }}</h3>
                             <p class="text-sm text-gray-500 mt-1">${{ number_format((float) $item['price'], 0, ',', '.') }} c/u</p>
                         </div>
 
@@ -146,15 +150,15 @@ new class extends Component
                             <button
                                 type="button"
                                 wire:click="decrementQuantity({{ $id }})"
-                                class="px-3 py-1.5 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                                class="px-3.5 py-2 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             >
                                 -
                             </button>
-                            <span class="px-3 py-1.5 text-sm font-bold text-gray-800">{{ $item['quantity'] }}</span>
+                            <span class="px-3.5 py-2 text-sm font-bold text-gray-800">{{ $item['quantity'] }}</span>
                             <button
                                 type="button"
                                 wire:click="incrementQuantity({{ $id }})"
-                                class="px-3 py-1.5 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                                class="px-3.5 py-2 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             >
                                 +
                             </button>
