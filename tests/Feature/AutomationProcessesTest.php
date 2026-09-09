@@ -304,16 +304,15 @@ describe('stock:check-expiry', function () {
 
         $data = json_decode($notifications->first()->data, true);
 
-        // The command groups by ingredient_id and uses that id as the variation index,
-        // so the recipe style depends on the actual row id. Quantity (1000) stays under
-        // 1500, so exactly one variation (v = 0) is generated: index = (id * 2) % 5.
-        // Only 'Lovers Burger XL' (index 4) uses a x4 multiplier; the rest use x3.
-        $variationIndex = ($cheddar->id * 2) % 5;
+        // El comando reindexa los riesgos 0..n por cantidad DESCENDENTE (fix del
+        // hallazgo de variación nondeterminística). Con un único ingrediente en
+        // riesgo el ranking es 0: variation[0] = 'Special Burger' (multiplicador 3).
+        $variationIndex = 0;
         $multiplier = $variationIndex === 4 ? 4 : 3;
 
         // baseCost = pan 100 + carne 250 + cheddar (300 * multiplier).
-        // A regression to the old non-existent `unit_cost` fallback would yield
-        // (50 + 200 + 0) * 1.30 = 325, so this proves purchase_price is used.
+        // Una regresión al viejo fallback `unit_cost` inexistente daría
+        // (50 + 200 + 0) * 1.30 = 325, así que esto prueba que se usa purchase_price.
         $expectedPrice = (string) round((100 + 250 + (300 * $multiplier)) * 1.30, 2);
 
         expect($data['title'])->toContain('Idea de Nuevo Plato')
@@ -382,5 +381,177 @@ describe('stock:check-expiry', function () {
         $this->artisan('stock:check-expiry')->assertExitCode(1);
 
         expect(automationNotifications())->toBeEmpty();
+    });
+
+    test('variation index is deterministic by quantity ranking, not row id', function () {
+        $restaurant = automationRestaurant();
+        automationAdmin($restaurant);
+        [$pan, $carne] = automationBaseIngredients($restaurant);
+
+        // El ingrediente con MENOS cantidad se crea PRIMERO (id menor).
+        $poco = Ingredient::query()->create([
+            'name' => 'Tomate',
+            'measurement_unit' => 'unidades',
+            'reorder_point' => 0,
+            'min_stock' => 5,
+            'restaurant_id' => $restaurant->id,
+        ]);
+        $poco->forceFill(['purchase_price' => 50])->save();
+        IngredientBatch::query()->create([
+            'ingredient_id' => $poco->id,
+            'quantity' => 100,
+            'expiration_date' => now()->addDays(2),
+        ]);
+
+        // El ingrediente con MÁS cantidad se crea después (id mayor).
+        $mucho = Ingredient::query()->create([
+            'name' => 'Bacon',
+            'measurement_unit' => 'gramos',
+            'reorder_point' => 0,
+            'min_stock' => 5,
+            'restaurant_id' => $restaurant->id,
+        ]);
+        $mucho->forceFill(['purchase_price' => 400])->save();
+        IngredientBatch::query()->create([
+            'ingredient_id' => $mucho->id,
+            'quantity' => 2000,
+            'expiration_date' => now()->addDays(2),
+        ]);
+
+        $this->artisan('stock:check-expiry')->assertSuccessful();
+
+        $notifications = automationNotifications();
+        expect($notifications)->toHaveCount(3); // Bacon (qty 2000 => 2 variaciones) + Tomate (qty 100 => 1)
+
+        $bodies = collect($notifications)
+            ->map(fn ($n) => json_decode($n->data, true)['body'])
+            ->join(' | ');
+
+        // El ranking 0 (mayor cantidad = Bacon) debe caer en la variación 'Special'
+        // (índice 0), NO depender del id de fila de Bacon.
+        expect($bodies)->toContain('Bacon')
+            ->and($bodies)->toContain('Special Bacon Burger');
+    });
+
+    test('detects excess stock when quantity exceeds monthly consumption (edge)', function () {
+        $restaurant = automationRestaurant();
+        $admin = automationAdmin($restaurant);
+        [$pan, $carne] = automationBaseIngredients($restaurant);
+
+        $cheddar = Ingredient::query()->create([
+            'name' => 'Queso Cheddar',
+            'measurement_unit' => 'gramos',
+            'reorder_point' => 0,
+            'min_stock' => 5,
+            'restaurant_id' => $restaurant->id,
+        ]);
+        $cheddar->forceFill(['purchase_price' => 300])->save();
+
+        IngredientBatch::query()->create([
+            'ingredient_id' => $cheddar->id,
+            'quantity' => 10000, // Muy por encima de cualquier consumo mensual
+            'expiration_date' => now()->addDays(2),
+        ]);
+
+        // Consumo mensual: 1 producto vendido con receta que usa 200g de cheddar.
+        $recipe = \App\Models\Recipe::query()->create([
+            'name' => 'Burger Cheddar',
+            'instructions' => 'Burger con cheddar, pan y carne',
+        ]);
+        $recipe->ingredients()->attach([
+            $pan->id => ['required_amount' => 1],
+            $carne->id => ['required_amount' => 1],
+            $cheddar->id => ['required_amount' => 200],
+        ]);
+
+        $product = Product::factory()->create([
+            'name' => 'Burger Cheddar Test',
+            'restaurant_id' => $restaurant->id,
+            'recipe_id' => $recipe->id,
+            'price' => 1500,
+            'stock' => 10,
+        ]);
+
+        $order = \App\Models\Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'completed',
+            'type' => 'salon',
+            'table_id' => \App\Models\Table::factory()->create(['restaurant_id' => $restaurant->id])->id,
+        ]);
+        \App\Models\OrderProduct::query()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->artisan('stock:check-expiry')->assertSuccessful();
+
+        $bodies = collect(automationNotifications())
+            ->map(fn ($n) => json_decode($n->data, true)['body'])
+            ->join(' | ');
+
+        expect($bodies)->toContain('Queso Cheddar')
+            ->and($bodies)->toContain('Exceso de stock');
+    });
+
+    test('does not flag excess when consumption equals or exceeds stock (edge)', function () {
+        $restaurant = automationRestaurant();
+        automationAdmin($restaurant);
+        [$pan, $carne] = automationBaseIngredients($restaurant);
+
+        $cheddar = Ingredient::query()->create([
+            'name' => 'Queso Cheddar',
+            'measurement_unit' => 'gramos',
+            'reorder_point' => 0,
+            'min_stock' => 5,
+            'restaurant_id' => $restaurant->id,
+        ]);
+        $cheddar->forceFill(['purchase_price' => 300])->save();
+
+        IngredientBatch::query()->create([
+            'ingredient_id' => $cheddar->id,
+            'quantity' => 100,
+            'expiration_date' => now()->addDays(2),
+        ]);
+
+        // Consumo mensual alto: 500g (más que el stock de 100g => NO exceso).
+        $recipe = \App\Models\Recipe::query()->create([
+            'name' => 'Burger Cheddar 2',
+            'instructions' => 'Burger con cheddar extra, pan y carne',
+        ]);
+        $recipe->ingredients()->attach([
+            $pan->id => ['required_amount' => 1],
+            $carne->id => ['required_amount' => 1],
+            $cheddar->id => ['required_amount' => 500],
+        ]);
+
+        $product = Product::factory()->create([
+            'name' => 'Burger Cheddar Test 2',
+            'restaurant_id' => $restaurant->id,
+            'recipe_id' => $recipe->id,
+            'price' => 1500,
+            'stock' => 10,
+        ]);
+
+        $order = \App\Models\Order::factory()->create([
+            'restaurant_id' => $restaurant->id,
+            'status' => 'completed',
+            'type' => 'salon',
+            'table_id' => \App\Models\Table::factory()->create(['restaurant_id' => $restaurant->id])->id,
+        ]);
+        \App\Models\OrderProduct::query()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ]);
+
+        $this->artisan('stock:check-expiry')->assertSuccessful();
+
+        $bodies = collect(automationNotifications())
+            ->map(fn ($n) => json_decode($n->data, true)['body'])
+            ->join(' | ');
+
+        expect($bodies)->toContain('Queso Cheddar')
+            ->and($bodies)->not->toContain('Exceso de stock');
     });
 });
