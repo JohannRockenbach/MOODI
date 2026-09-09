@@ -65,4 +65,13 @@ class Ingredient extends Model
     {
         return $this->hasMany(IngredientBatch::class);
     }
+
+    /**
+     * Stock actual del ingrediente = SUMA de la cantidad de sus lotes.
+     * La columna current_stock fue eliminada de la tabla ingredients.
+     */
+    public function getTotalStockAttribute(): float
+    {
+        return (float) $this->batches()->sum('quantity');
+    }
 }

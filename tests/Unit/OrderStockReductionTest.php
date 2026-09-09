@@ -159,8 +159,11 @@ test('stock is not deducted twice for the same order', function () {
         'table_id' => $this->table->id,
         'waiter_id' => $this->user->id,
         'status' => 'completed',
-        'stock_deducted' => true,
     ]);
+
+    // Set stock_deducted directly (removed from $fillable for security)
+    $order->stock_deducted = true;
+    $order->saveQuietly();
 
     $order->orderProducts()->create([
         'product_id' => $product->id,
