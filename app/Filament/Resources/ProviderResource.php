@@ -139,8 +139,13 @@ class ProviderResource extends Resource
     }
     
     // Filtrar solo registros del restaurante ID = 1
+    // Se remueve el SoftDeletingScope para que TrashedFilter / Restore / ForceDelete funcionen.
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('restaurant_id', 1);
+        return parent::getEloquentQuery()
+            ->where('restaurant_id', 1)
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 }
