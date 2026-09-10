@@ -8,15 +8,20 @@ use App\Models\Sale;
 use App\Models\Table;
 use App\Models\User;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 it('hides cross-restaurant sale records and denies view action for them (authorization)', function () {
+    // Cajero ve ventas de SU restaurante, no las de otros tenants.
+    Role::findOrCreate('Cajero', 'web');
+
     $restaurantA = Restaurant::factory()->create();
     $restaurantB = Restaurant::factory()->create();
 
     $viewer = User::factory()->create([
-        'email' => 'admin@moodi.com',
+        'email' => 'cajero@moodi.com',
         'restaurant_id' => $restaurantA->id,
     ]);
+    $viewer->assignRole('Cajero');
 
     $waiterA = User::factory()->create(['restaurant_id' => $restaurantA->id]);
     $waiterB = User::factory()->create(['restaurant_id' => $restaurantB->id]);

@@ -83,6 +83,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 \App\Http\Middleware\RedirectMozoToTableMap::class,
+                \App\Http\Middleware\RedirectCocineroToKitchen::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),

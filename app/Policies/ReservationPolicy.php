@@ -16,7 +16,8 @@ class ReservationPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->exists();
+        // Reservas: Mozo y super_admin gestionan reservas; Cocinero/Cajero no.
+        return $user->hasAnyRole(['super_admin', 'Mozo']);
     }
 
     public function view(User $user, Reservation $reservation): bool

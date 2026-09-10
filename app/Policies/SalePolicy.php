@@ -16,7 +16,8 @@ class SalePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->exists();
+        // Ventas: Cajero y super_admin. Mozo/Cocinero no ven el listado de ventas.
+        return $user->hasAnyRole(['super_admin', 'Cajero']);
     }
 
     public function view(User $user, Sale $sale): bool

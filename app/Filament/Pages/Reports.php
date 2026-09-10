@@ -42,11 +42,23 @@ class Reports extends Page
 
     public bool $includeAnnulled = false;
 
+    /**
+     * Sección visible del reporte: ventas | caja | productos | ganancias.
+     */
+    public string $activeTab = 'ventas';
+
     public function mount(): void
     {
         // Default: últimos 30 días.
         $this->from = now()->subDays(30)->toDateString();
         $this->to = now()->toDateString();
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $this->activeTab = in_array($tab, ['ventas', 'caja', 'productos', 'ganancias'], true)
+            ? $tab
+            : 'ventas';
     }
 
     // ─────────────────────────────────────────────────────────────

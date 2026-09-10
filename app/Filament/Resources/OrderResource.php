@@ -31,6 +31,28 @@ class OrderResource extends Resource
 
     protected static ?string $navigationLabel = 'Pedidos';
 
+    /**
+     * Items de navegación: "Pedidos" (listado) + "Cocina" (KDS).
+     * La cocina era solo accesible por URL directa; ahora aparece en el menú
+     * para super_admin y Cocinero.
+     */
+    public static function getNavigationItems(): array
+    {
+        $items = parent::getNavigationItems();
+
+        $user = Auth::user();
+
+        if ($user && $user->hasAnyRole(['super_admin', 'Cocinero'])) {
+            $items[] = \Filament\Navigation\NavigationItem::make('Cocina')
+                ->icon('heroicon-o-fire')
+                ->group('Operaciones del Salón')
+                ->sort(3)
+                ->url(static::getUrl('kitchen'));
+        }
+
+        return $items;
+    }
+
     // Optimización N+1: Eager loading de relaciones
     public static function getEloquentQuery(): Builder
     {
