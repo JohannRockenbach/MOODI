@@ -131,4 +131,42 @@ class RolesKitchenTest extends TestCase
         $this->assertFalse($cocinero->can('open_caja'));
         $this->assertFalse($cocinero->can('create_order'));
     }
+
+    public function test_cocinero_no_ve_el_escritorio(): void
+    {
+        $cocinero = $this->makeUser('Cocinero', 'cocina3@test.com');
+
+        // El Escritorio (dashboard general) queda oculto para el Cocinero.
+        $this->actingAs($cocinero);
+        $this->assertFalse(\App\Filament\Pages\Dashboard::canAccess());
+    }
+
+    public function test_mozo_y_admin_ven_el_escritorio(): void
+    {
+        $admin = $this->makeUser('super_admin', 'admin3@test.com');
+        $mozo = $this->makeUser('Mozo', 'mozo3@test.com');
+
+        $this->actingAs($admin);
+        $this->assertTrue(\App\Filament\Pages\Dashboard::canAccess());
+
+        $this->actingAs($mozo);
+        $this->assertTrue(\App\Filament\Pages\Dashboard::canAccess());
+    }
+
+    public function test_reportes_registran_sub_paginas_con_parent(): void
+    {
+        $admin = $this->makeUser('super_admin', 'admin4@test.com');
+        $this->actingAs($admin);
+
+        $this->assertTrue(\App\Filament\Pages\ReporteVentas::canAccess());
+        $this->assertTrue(\App\Filament\Pages\ReporteCaja::canAccess());
+        $this->assertTrue(\App\Filament\Pages\ReporteProductos::canAccess());
+        $this->assertTrue(\App\Filament\Pages\ReporteGanancias::canAccess());
+
+        // Todas cuelgan del mismo item padre "Reportes".
+        $this->assertSame('Reportes', \App\Filament\Pages\ReporteVentas::getNavigationParentItem());
+        $this->assertSame('Reportes', \App\Filament\Pages\ReporteCaja::getNavigationParentItem());
+        $this->assertSame('Reportes', \App\Filament\Pages\ReporteProductos::getNavigationParentItem());
+        $this->assertSame('Reportes', \App\Filament\Pages\ReporteGanancias::getNavigationParentItem());
+    }
 }

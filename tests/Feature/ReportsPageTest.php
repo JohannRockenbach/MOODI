@@ -56,9 +56,9 @@ class ReportsPageTest extends TestCase
         ]);
     }
 
-    private function makeReport(array $state = []): Reports
+    private function makeReport(array $state = []): \App\Filament\Pages\ReporteVentas
     {
-        $page = new Reports();
+        $page = new \App\Filament\Pages\ReporteVentas();
 
         foreach ($state as $key => $value) {
             $page->{$key} = $value;

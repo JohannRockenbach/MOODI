@@ -8,17 +8,20 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class Reports extends Page
+/**
+ * Clase base de los reportes. Cada sección (ventas, caja, productos,
+ * ganancias) es una PÁGINA hija que aparece como sub-menú de "Reportes".
+ */
+abstract class Reports extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
 
-    protected static string $view = 'filament.pages.reports';
-
-    protected static ?string $title = 'Reportes';
-
-    protected static ?string $navigationLabel = 'Reportes';
-
     protected static ?string $navigationGroup = 'Reportes';
+
+    /**
+     * Nombre del item padre: al presionar "Reportes" se despliega.
+     */
+    protected static ?string $navigationParentItem = 'Reportes';
 
     protected static ?int $navigationSort = 1;
 
@@ -43,22 +46,15 @@ class Reports extends Page
     public bool $includeAnnulled = false;
 
     /**
-     * Sección visible del reporte: ventas | caja | productos | ganancias.
+     * Sección del reporte que muestra esta página: ventas | caja | productos | ganancias.
      */
-    public string $activeTab = 'ventas';
+    protected string $activeSection = 'ventas';
 
     public function mount(): void
     {
         // Default: últimos 30 días.
         $this->from = now()->subDays(30)->toDateString();
         $this->to = now()->toDateString();
-    }
-
-    public function setActiveTab(string $tab): void
-    {
-        $this->activeTab = in_array($tab, ['ventas', 'caja', 'productos', 'ganancias'], true)
-            ? $tab
-            : 'ventas';
     }
 
     // ─────────────────────────────────────────────────────────────

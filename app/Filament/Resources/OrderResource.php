@@ -46,7 +46,7 @@ class OrderResource extends Resource
             $items[] = \Filament\Navigation\NavigationItem::make('Cocina')
                 ->icon('heroicon-o-fire')
                 ->group('Operaciones del Salón')
-                ->sort(3)
+                ->sort(1)
                 ->url(static::getUrl('kitchen'));
         }
 
