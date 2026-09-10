@@ -7,10 +7,10 @@
             $uniqueId = uniqid();
         @endphp
 
-        <div class="relative overflow-hidden rounded-lg shadow-lg border-4 border-danger-600 dark:border-danger-500">
+        <div class="relative overflow-hidden rounded-lg shadow-lg border-4 border-red-600 dark:border-red-500">
             @if($criticalCount > 0)
                 {{-- Alerta Crítica (Stock = 0 o muy bajo) --}}
-                <div class="bg-gradient-to-r from-danger-600 to-danger-500 dark:from-danger-800 dark:to-danger-700 p-6">
+                <div class="bg-gradient-to-r from-red-700 to-red-600 p-6">
                     {{-- Encuadre del título y botón --}}
                     <div class="border-2 border-white/30 rounded-lg p-4 bg-white/5">
                         <div class="flex items-center justify-between">
@@ -99,16 +99,16 @@
                 </div>
             @elseif($warningCount > 0)
                 {{-- Advertencia (Stock bajo pero no crítico) --}}
-                <div class="bg-gradient-to-r from-warning-500 to-warning-400 dark:from-warning-700 dark:to-warning-600 p-6">
+                <div class="bg-gradient-to-r from-amber-500 to-amber-400 p-6">
                     {{-- Encuadre del título y botón --}}
-                    <div class="border-2 border-warning-700/40 dark:border-white/30 rounded-lg p-4 bg-white/10 dark:bg-white/5">
+                    <div class="border-2 border-amber-800/40 rounded-lg p-4 bg-white/10">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-shrink-0">
-                                    <x-heroicon-o-exclamation-triangle class="h-12 w-12 text-warning-950 dark:text-white" />
+                                    <x-heroicon-o-exclamation-triangle class="h-12 w-12 text-amber-900" />
                                 </div>
                                 <div>
-                                    <h2 class="text-xl font-bold text-warning-950 dark:text-white">
+                                    <h2 class="text-xl font-bold text-amber-900">
                                         ⚠️ Advertencia: Stock Bajo
                                     </h2>
                                 </div>
@@ -129,7 +129,7 @@
                                         buttonText.textContent = 'Ver Detalles';
                                     }
                                 "
-                                class="inline-flex items-center px-4 py-2 border-2 border-warning-900 dark:border-white rounded-md shadow-sm text-sm font-medium text-warning-950 dark:text-white hover:bg-white hover:text-warning-700 dark:hover:bg-warning-500 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-warning-700 dark:focus:ring-white transition"
+                                class="inline-flex items-center px-4 py-2 border-2 border-amber-900 rounded-md shadow-sm text-sm font-medium text-amber-900 hover:bg-white hover:text-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-700 transition"
                             >
                                 <span id="button-text-{{ $uniqueId }}">Ver Detalles</span>
                                 <x-heroicon-o-chevron-down id="toggle-icon-{{ $uniqueId }}" class="ml-2 h-4 w-4 transition-transform duration-300" />

@@ -34,7 +34,6 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
-            ->topNavigation()
             ->defaultAvatarProvider(\Filament\AvatarProviders\UiAvatarsProvider::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
