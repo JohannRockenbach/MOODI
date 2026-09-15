@@ -263,6 +263,21 @@ class TableMap extends Page
         );
     }
 
+    // Ir a crear una reserva para la mesa seleccionada (patrón de createOrderForTable:
+    // el query param table_id prellena el form en CreateReservation).
+    public function createReservation(): void
+    {
+        $this->authorizeStaffAccess();
+
+        if (! $this->selectedTableId) {
+            return;
+        }
+
+        $this->redirect(
+            \App\Filament\Resources\ReservationResource::getUrl('create', ['table_id' => $this->selectedTableId])
+        );
+    }
+
     // Liberar una mesa
     public function freeTable(int $tableId): void
     {

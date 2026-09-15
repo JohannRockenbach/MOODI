@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\TableMap;
+use App\Filament\Resources\ReservationResource\Pages\CreateReservation;
 use App\Models\Order;
 use App\Models\OrderProduct;
 use App\Models\Product;
@@ -571,4 +572,32 @@ it('no une mesas si la mesa elegida no tiene pedidos activos', function () {
 
     expect($order->fresh()->table_id)->toBe($primera->id)
         ->and($sinPedidos->fresh()->status)->toBe(Table::STATUS_OCCUPIED);
+});
+
+// ─────────────────────────────────────────────────────────────
+// FIX 4 — RESERVAR + CREAR PEDIDO
+// ─────────────────────────────────────────────────────────────
+
+it('redirige a crear reserva con la mesa preseleccionada', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $table = Table::factory()->create(['number' => 80, 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+
+    Livewire::actingAs($mozo)->test(TableMap::class)
+        ->call('selectTable', $table->id)
+        ->call('createReservation')
+        ->assertRedirectContains('table_id='.$table->id);
+});
+
+it('prellena table_id en el formulario de reserva cuando llega el query param', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $table = Table::factory()->create(['number' => 81, 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+
+    $instance = Livewire::actingAs($mozo)
+        ->test(CreateReservation::class, ['table_id' => $table->id])
+        ->assertOk()
+        ->instance();
+
+    expect($instance->data['table_id'] ?? null)->toBe($table->id);
 });

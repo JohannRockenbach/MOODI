@@ -324,9 +324,14 @@
                         <button
                             wire:click="{{ $selected['first_order_id'] ? 'editOrder('.$selected['first_order_id'].')' : 'createOrderForTable' }}"
                             class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-white font-black rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                            title="{{ $selected['first_order_id'] ? 'Gestionar el pedido activo de la mesa' : 'Crear un pedido nuevo para la mesa' }}"
                         >
-                            <x-heroicon-o-pencil-square class="w-4 h-4 stroke-[2.5]" />
-                            <span>{{ $selected['first_order_id'] ? 'Ver / Gestionar Comanda' : 'Crear Comanda' }}</span>
+                            @if($selected['first_order_id'])
+                                <x-heroicon-o-pencil-square class="w-4 h-4 stroke-[2.5]" />
+                            @else
+                                <x-heroicon-o-plus class="w-4 h-4 stroke-[2.5]" />
+                            @endif
+                            <span>Crear Pedido</span>
                         </button>
                         <button
                             wire:click="prepareCobroMesa({{ $selected['id'] }})"
@@ -338,6 +343,15 @@
                             <x-heroicon-o-credit-card class="w-4 h-4" />
                             <span>Cobrar Cuenta / Imprimir Factura</span>
                         </button>
+                        @if(in_array($selected['status'], ['available', 'occupied'], true))
+                            <button
+                                wire:click="createReservation"
+                                class="w-full py-2.5 bg-transparent border border-amber-500/70 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10 active:scale-[0.99] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                            >
+                                <x-heroicon-o-calendar class="w-4 h-4" />
+                                <span>Reservar</span>
+                            </button>
+                        @endif
                     </div>
 
                     {{-- Acciones rápidas secundarias --}}
