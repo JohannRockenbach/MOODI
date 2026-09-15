@@ -639,3 +639,25 @@ it('muestra pax según estado real: capacidad, pedidos, reserva o mantenimiento'
     // El plano renderiza el label real de la ocupada (pedidos, no capacidad).
     $component->assertSee('2 pedidos');
 });
+
+// ─────────────────────────────────────────────────────────────
+// INTEGRACIÓN: "Crear Pedido" del Mapa → TPV rápido (CrearPedido)
+// ─────────────────────────────────────────────────────────────
+
+it('lleva "Crear Pedido" al TPV rápido con la mesa seleccionada por URL', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $table = Table::factory()->create([
+        'number' => 22,
+        'capacity' => 4,
+        'location' => 'Salón Principal',
+        'status' => Table::STATUS_AVAILABLE,
+        'restaurant_id' => 1,
+    ]);
+
+    Livewire::actingAs($mozo)
+        ->test(TableMap::class)
+        ->call('selectTable', $table->id)
+        ->call('createOrderForTable')
+        ->assertRedirect(\App\Filament\Pages\CrearPedido::getUrl(['table_id' => $table->id]));
+});

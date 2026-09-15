@@ -266,8 +266,9 @@ class TableMap extends Page
         }
 
         // NO cambiar el estado aquí - se cambiará cuando se GUARDE el pedido
+        // El TPV rápido (Crear Pedido) recibe la mesa por query param y la bloquea.
         $this->redirect(
-            \App\Filament\Resources\OrderResource::getUrl('create', ['table_id' => $this->selectedTableId])
+            \App\Filament\Pages\CrearPedido::getUrl(['table_id' => $this->selectedTableId])
         );
     }
 
