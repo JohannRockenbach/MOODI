@@ -176,6 +176,28 @@ class TableMap extends Page
             'avg_stay' => $stayMinutes->isNotEmpty() ? (int) round($stayMinutes->avg()) : null,
             'next_turn' => $nextTurnAt?->format('H:i'),
         ];
+
+        // Invalidar el computed que depende de tablesByLocation para evitar servir
+        // datos viejos si se re-ejecuta loadTables en el mismo ciclo de request.
+        unset($this->visibleZones);
+    }
+
+    /**
+     * Zonas visibles según el filtro activo (Todas / Terraza / Salón / Barra).
+     * Fuente única de verdad para el plano: el blade itera esto SIN @continue,
+     * así el morph de Livewire nunca deja un bloque de zona huérfano (wire:key).
+     */
+    #[Computed]
+    public function visibleZones(): array
+    {
+        $zones = $this->tablesByLocation;
+
+        if ($this->activeZone !== 'all') {
+            $zones = array_intersect_key($zones, [$this->activeZone => true]);
+        }
+
+        // Omitir zonas sin mesas (mismo comportamiento del @forelse original).
+        return array_filter($zones, fn (array $tables) => $tables !== []);
     }
 
     /**

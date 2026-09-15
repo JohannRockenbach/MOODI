@@ -136,10 +136,9 @@
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {{-- COLUMNA IZQUIERDA: PLANO --}}
             <section class="lg:col-span-7 flex flex-col gap-6" data-purpose="table-floor-plan">
-                @forelse($tablesByLocation as $zoneKey => $locationTables)
-                    @if(count($locationTables) === 0 || ($activeZone !== 'all' && $activeZone !== $zoneKey))
-                        @continue
-                    @endif
+                @forelse($this->visibleZones as $zoneKey => $locationTables)
+                    {{-- El filtro por zona lo resuelve TableMap::visibleZones(): acá NO hay
+                         @continue, el plano siempre itera la misma colección (morph estable). --}}
 
                     {{-- Bloque de zona --}}
                     <article wire:key="zone-{{ $zoneKey }}" class="zone-block bg-white dark:bg-[#080808] border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-lg relative" data-zone-id="{{ $zoneKey }}">
@@ -226,9 +225,10 @@
                         </div>
                     </article>
                 @empty
+                    @php($hasAnyTable = collect($tablesByLocation)->flatten(1)->isNotEmpty())
                     <div class="bg-white dark:bg-[#0d0d0d] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-12 text-center">
-                        <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">No hay mesas registradas</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Creá una mesa para empezar a gestionar tu salón.</p>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">{{ $hasAnyTable ? 'No hay mesas en esta zona' : 'No hay mesas registradas' }}</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">{{ $hasAnyTable ? 'Cambiá el filtro de zona para ver otras mesas.' : 'Creá una mesa para empezar a gestionar tu salón.' }}</p>
                     </div>
                 @endforelse
             </section>

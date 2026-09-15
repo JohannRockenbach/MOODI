@@ -352,3 +352,62 @@ it('una mesa en mantenimiento no se puede ocupar', function () {
     expect($table->occupy())->toBeFalse();
     expect($table->fresh()->status)->toBe(Table::STATUS_MAINTENANCE);
 });
+
+// ─────────────────────────────────────────────────────────────
+// FIX 1 — FILTRO DE ZONA (regresión: plano vacío al alternar filtros)
+// ─────────────────────────────────────────────────────────────
+
+it('filtra el plano por zona y vuelve a "Todas" sin quedar vacío', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    Table::factory()->create(['number' => 1, 'location' => 'Terraza', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+    Table::factory()->create(['number' => 2, 'location' => 'Salón', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+    Table::factory()->create(['number' => 3, 'location' => 'Barra', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class);
+
+    // Defecto: todas las zonas visibles.
+    $component
+        ->assertSeeHtml('data-zone-id="terraza"')
+        ->assertSeeHtml('data-zone-id="salon"')
+        ->assertSeeHtml('data-zone-id="barra"');
+
+    // Solo Terraza.
+    $component->set('activeZone', 'terraza')
+        ->assertSeeHtml('data-zone-id="terraza"')
+        ->assertDontSeeHtml('data-zone-id="salon"')
+        ->assertDontSeeHtml('data-zone-id="barra"');
+
+    // Solo Salón.
+    $component->set('activeZone', 'salon')
+        ->assertSeeHtml('data-zone-id="salon"')
+        ->assertDontSeeHtml('data-zone-id="terraza"')
+        ->assertDontSeeHtml('data-zone-id="barra"');
+
+    // Solo Barra.
+    $component->set('activeZone', 'barra')
+        ->assertSeeHtml('data-zone-id="barra"')
+        ->assertDontSeeHtml('data-zone-id="terraza"')
+        ->assertDontSeeHtml('data-zone-id="salon"');
+
+    // Regresión del bug: al volver a "Todas" todo el plano reaparece.
+    $component->set('activeZone', 'all')
+        ->assertSeeHtml('data-zone-id="terraza"')
+        ->assertSeeHtml('data-zone-id="salon"')
+        ->assertSeeHtml('data-zone-id="barra"');
+});
+
+it('visibleZones respeta la zona activa y omite zonas sin mesas', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    Table::factory()->create(['number' => 10, 'location' => 'Terraza', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class)->set('activeZone', 'terraza');
+    $visible = $component->instance()->visibleZones;
+
+    expect(array_keys($visible))->toBe(['terraza']);
+
+    // Zona sin mesas (barra) nunca aparece, ni siquiera en "Todas".
+    $component->set('activeZone', 'all');
+    expect(array_keys($component->instance()->visibleZones))->not->toContain('barra');
+});
