@@ -149,6 +149,7 @@ class TableMap extends Page
                 'first_order_id' => $firstOrder?->id,
                 'has_reservation' => $nextReservation !== null,
                 'reservation_info' => $nextReservation ? $this->reservationInfo($nextReservation) : null,
+                'reservation_time' => $nextReservation?->reservation_time->format('H:i'),
                 'waiter_name' => $table->waiter?->name ?? $firstOrder?->waiter?->name ?? 'Sin asignar',
             ];
         }
@@ -203,6 +204,26 @@ class TableMap extends Page
 
         // Omitir zonas sin mesas (mismo comportamiento del @forelse original).
         return array_filter($zones, fn (array $tables) => $tables !== []);
+    }
+
+    /**
+     * Etiqueta de comensales bajo el número de mesa según el estado REAL:
+     * - disponible → capacidad ("4 pax")
+     * - ocupada → cantidad de pedidos ACTIVOS ("2 pedidos")
+     * - reservada → próxima reserva ("Reserva 21:30")
+     * - mantenimiento → "Mantenimiento"
+     * Se muestra en el plano; el mockup/data-comanda no usa capacidad para ocupadas.
+     */
+    public function paxLabel(array $table): string
+    {
+        return match ($table['status']) {
+            Table::STATUS_OCCUPIED => ($table['orders_count'] ?? 0).' '.((int) ($table['orders_count'] ?? 0) === 1 ? 'pedido' : 'pedidos'),
+            Table::STATUS_RESERVED => ! empty($table['reservation_time'])
+                ? 'Reserva '.$table['reservation_time']
+                : 'Reservada',
+            Table::STATUS_MAINTENANCE => 'Mantenimiento',
+            default => $table['capacity'].' pax',
+        };
     }
 
     /**

@@ -601,3 +601,41 @@ it('prellena table_id en el formulario de reserva cuando llega el query param', 
 
     expect($instance->data['table_id'] ?? null)->toBe($table->id);
 });
+
+// ─────────────────────────────────────────────────────────────
+// FIX 5 — PAX REAL BAJO EL NÚMERO DE MESA
+// ─────────────────────────────────────────────────────────────
+
+it('muestra pax según estado real: capacidad, pedidos, reserva o mantenimiento', function () {
+    $mozo = makeMesaUser('Mozo');
+    $cliente = User::factory()->create(['name' => 'Ana']);
+
+    $available = Table::factory()->create(['number' => 90, 'capacity' => 4, 'location' => 'Terraza', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+    $occupied = Table::factory()->create(['number' => 91, 'capacity' => 4, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $reserved = Table::factory()->create(['number' => 92, 'capacity' => 4, 'location' => 'Barra', 'status' => Table::STATUS_RESERVED, 'restaurant_id' => 1]);
+    $maintenance = Table::factory()->create(['number' => 93, 'capacity' => 4, 'location' => 'Terraza', 'status' => Table::STATUS_MAINTENANCE, 'restaurant_id' => 1]);
+
+    Order::factory()->create(['table_id' => $occupied->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+    Order::factory()->create(['table_id' => $occupied->id, 'restaurant_id' => 1, 'status' => 'processing', 'type' => 'salon']);
+
+    $fecha = now()->addHours(2)->startOfHour();
+    Reservation::factory()->create([
+        'table_id' => $reserved->id,
+        'restaurant_id' => 1,
+        'customer_id' => $cliente->id,
+        'status' => 'confirmed',
+        'reservation_time' => $fecha,
+    ]);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class);
+    $instance = $component->instance();
+    $all = collect(array_merge(...array_values($component->get('tablesByLocation'))));
+
+    expect($instance->paxLabel($all->firstWhere('id', $available->id)))->toBe('4 pax')
+        ->and($instance->paxLabel($all->firstWhere('id', $occupied->id)))->toBe('2 pedidos')
+        ->and($instance->paxLabel($all->firstWhere('id', $reserved->id)))->toBe('Reserva '.$fecha->format('H:i'))
+        ->and($instance->paxLabel($all->firstWhere('id', $maintenance->id)))->toBe('Mantenimiento');
+
+    // El plano renderiza el label real de la ocupada (pedidos, no capacidad).
+    $component->assertSee('2 pedidos');
+});

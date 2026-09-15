@@ -197,7 +197,9 @@
                                         @endif
                                     </div>
 
-                                    <span class="text-sm {{ $table['status'] === 'occupied' ? 'font-bold text-rose-600 dark:text-rose-300' : ($table['status'] === 'reserved' ? 'font-bold text-amber-700 dark:text-amber-300' : 'font-semibold text-slate-500 dark:text-slate-400') }}">{{ $table['capacity'] }} pax</span>
+                                    {{-- Comensales según estado REAL: disponible → capacidad, ocupada → pedidos
+                                            activos, reservada → próxima reserva, mantenimiento → Mantenimiento --}}
+                                    <span class="text-sm {{ $table['status'] === 'occupied' ? 'font-bold text-rose-600 dark:text-rose-300' : ($table['status'] === 'reserved' ? 'font-bold text-amber-700 dark:text-amber-300' : 'font-semibold text-slate-500 dark:text-slate-400') }}">{{ $this->paxLabel($table) }}</span>
 
                                     @if($table['status'] === 'occupied' && $table['orders_count'] > 0)
                                         <span class="text-xs text-rose-600 dark:text-rose-300/90 flex items-center gap-1 mt-0.5">
