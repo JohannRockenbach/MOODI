@@ -351,6 +351,11 @@ class TableMap extends Page
             'capacity' => $validated['newCapacity'],
             'status' => Table::STATUS_AVAILABLE,
             'restaurant_id' => 1,
+            // Defensa en profundidad: el default de DB (0) evita el NOT NULL,
+            // pero persistimos las coordenadas explícitamente para que el insert
+            // nunca dependa del estado del schema (floor plan legacy espera ints).
+            'pos_x' => 0,
+            'pos_y' => 0,
         ]);
 
         $this->reset('newNumber', 'newCapacity');

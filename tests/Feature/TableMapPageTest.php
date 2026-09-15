@@ -10,6 +10,7 @@ use App\Models\Reservation;
 use App\Models\Restaurant;
 use App\Models\Table;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -82,7 +83,39 @@ it('crea una mesa nueva desde el modal y aparece en el mapa', function () {
         'capacity' => 1,
         'status' => Table::STATUS_AVAILABLE,
         'restaurant_id' => 1,
+        'pos_x' => 0,
+        'pos_y' => 0,
     ]);
+});
+
+it('alimenta pos_x/pos_y con default 0 al crear una mesa sin coordenadas', function () {
+    // Defensa en profundidad: createTable() persiste 0 explícitamente, así el
+    // insert nunca depende de que el default de DB esté aplicado en el schema.
+    $mozo = makeMesaUser('Mozo');
+
+    Livewire::actingAs($mozo)
+        ->test(TableMap::class)
+        ->set('newNumber', 43)
+        ->set('newLocation', 'terraza')
+        ->set('newCapacity', 2)
+        ->call('createTable')
+        ->assertHasNoErrors();
+
+    $created = Table::where('restaurant_id', 1)->where('number', 43)->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->pos_x)->toBe(0)
+        ->and($created->pos_y)->toBe(0);
+});
+
+it('las columnas pos_x/pos_y tienen default 0 en el schema (migración aplicada)', function () {
+    // La migración add_default_coordinates_to_tables_table alinea el schema real:
+    // en dev las columnas quedaron NOT NULL sin default y rompían la creación.
+    $columns = collect(Schema::getColumns('tables'))->keyBy('name');
+
+    // Postgres expone el default como string ('0'); comparamos normalizado.
+    expect((string) $columns['pos_x']['default'])->toBe('0')
+        ->and((string) $columns['pos_y']['default'])->toBe('0');
 });
 
 it('rechaza crear una mesa con número duplicado en el restaurante', function () {
