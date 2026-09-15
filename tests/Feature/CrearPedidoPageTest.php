@@ -259,3 +259,15 @@ it('bloquea cambiar de modalidad y de mesa cuando viene del mapa', function () {
         ->call('openTableModal')
         ->assertSet('showTableModal', false); // sin modal de cambio
 });
+it('renderiza el selector de mesas al entrar sin mesa precargada', function () {
+    $mozo = makePosUser('Mozo');
+    $table = makePosTable(['number' => 36, 'location' => 'Terraza']);
+
+    // Sin ?table_id → el TPV muestra el <select> de mesas; debe renderizar
+    // sin error (regresión: getTablesProperty() devuelve arrays, no modelos).
+    Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->assertSet('selectedTableId', null)
+        ->assertSee('Mesa #36')
+        ->assertSee('Terraza');
+});

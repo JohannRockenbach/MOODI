@@ -43,7 +43,7 @@
                                 >
                                     <option value="">Elegí una mesa…</option>
                                     @foreach ($this->tables as $table)
-                                        <option value="{{ $table->id }}">Mesa #{{ $table->number }} — {{ $table->location }} ({{ $table->status_label }})</option>
+                                        <option value="{{ $table['id'] }}">Mesa #{{ $table['number'] }} — {{ $table['location'] }} ({{ $table['status_label'] }})</option>
                                     @endforeach
                                 </select>
                                 <span class="hidden text-[11px] text-slate-500 dark:text-[#c1c6d5] lg:inline">Elegí la mesa para tomar la comanda</span>
@@ -380,7 +380,7 @@
                     <select wire:model="newTableId" class="mt-4 w-full rounded-xl border-0 bg-slate-100 p-3 text-sm font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-amber-500 dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:ring-[#414753]">
                         <option value="">Sin mesa (solo para llevar)</option>
                         @foreach ($this->tables as $table)
-                            <option value="{{ $table->id }}">Mesa #{{ $table->number }} — {{ $table->location }} ({{ $table->status_label }})</option>
+                            <option value="{{ $table['id'] }}">Mesa #{{ $table['number'] }} — {{ $table['location'] }} ({{ $table['status_label'] }})</option>
                         @endforeach
                     </select>
                     <div class="mt-4 flex gap-2">
