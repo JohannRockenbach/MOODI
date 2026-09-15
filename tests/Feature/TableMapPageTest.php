@@ -127,13 +127,48 @@ it('rechaza crear una mesa con número duplicado en el restaurante', function ()
         'restaurant_id' => 1,
     ]);
 
-    Livewire::actingAs($mozo)
+    $component = Livewire::actingAs($mozo)
         ->test(TableMap::class)
         ->set('newNumber', 7)
         ->set('newLocation', 'salon')
         ->set('newCapacity', 4)
+        ->call('createTable');
+
+    $component->assertHasErrors(['newNumber']);
+
+    // El error queda expuesto en el ErrorBag para que @error lo muestre en el modal.
+    expect($component->instance()->getErrorBag()->has('newNumber'))->toBeTrue();
+});
+
+it('rechaza capacidad fuera del rango permitido (1-20) con error visible', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $component = Livewire::actingAs($mozo)
+        ->test(TableMap::class)
+        ->set('newNumber', 9)
+        ->set('newLocation', 'salon')
+        ->set('newCapacity', 21)
+        ->call('createTable');
+
+    $component
+        ->assertHasErrors(['newCapacity'])
+        ->assertNotSet('tablesByLocation.salon', fn ($tables) => collect($tables)->contains('number', 9));
+
+    expect($component->instance()->getErrorBag()->has('newCapacity'))->toBeTrue();
+});
+
+it('rechaza una location inválida con error visible', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    // 'patio' NO es una clave de ZONE_LABELS: la validación Rule::in debe rechazarla.
+    Livewire::actingAs($mozo)
+        ->test(TableMap::class)
+        ->set('newNumber', 10)
+        ->set('newLocation', 'patio')
+        ->set('newCapacity', 4)
         ->call('createTable')
-        ->assertHasErrors(['newNumber']);
+        ->assertHasErrors(['newLocation'])
+        ->assertNotSet('tablesByLocation.salon', fn ($tables) => collect($tables)->contains('number', 10));
 });
 
 // ─────────────────────────────────────────────────────────────

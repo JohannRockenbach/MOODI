@@ -64,7 +64,7 @@ class TableMap extends Page
 
     public string $newLocation = 'terraza';
 
-    public int $newCapacity = 4;
+    public $newCapacity = 4;
 
     // Propiedades para cobro de mesa
     public string $paymentMethod = 'cash';

@@ -406,22 +406,26 @@
                             wire:model="newNumber"
                             min="1"
                             placeholder="Ej: 50"
-                            class="w-full bg-[#111111] border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none"
+                            class="w-full bg-[#111111] border rounded-lg p-2.5 text-white text-sm placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newNumber') ? 'border-rose-500' : 'border-slate-700' }}"
                         />
-                        @error('newNumber') <p class="text-[11px] text-rose-400 mt-1">{{ $message }}</p> @enderror
+                        @error('newNumber')
+                            <p class="text-[11px] text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                        @enderror
                     </div>
                     <div>
                         <label for="new-zone" class="block text-xs font-semibold text-slate-300 mb-1">Zona Asignada</label>
                         <select
                             id="new-zone"
                             wire:model="newLocation"
-                            class="w-full bg-[#111111] border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none"
+                            class="w-full bg-[#111111] border rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none {{ $errors->has('newLocation') ? 'border-rose-500' : 'border-slate-700' }}"
                         >
                             @foreach(\App\Filament\Pages\TableMap::ZONE_LABELS as $zoneKey => $zoneLabel)
                                 <option value="{{ $zoneKey }}">{{ $zoneLabel }}</option>
                             @endforeach
                         </select>
-                        @error('newLocation') <p class="text-[11px] text-rose-400 mt-1">{{ $message }}</p> @enderror
+                        @error('newLocation')
+                            <p class="text-[11px] text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                        @enderror
                     </div>
                     <div>
                         <label for="new-capacity" class="block text-xs font-semibold text-slate-300 mb-1">Capacidad Comensales (Pax)</label>
@@ -431,9 +435,11 @@
                             wire:model="newCapacity"
                             min="1"
                             max="20"
-                            class="w-full bg-[#111111] border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none"
+                            class="w-full bg-[#111111] border rounded-lg p-2.5 text-white text-sm placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newCapacity') ? 'border-rose-500' : 'border-slate-700' }}"
                         />
-                        @error('newCapacity') <p class="text-[11px] text-rose-400 mt-1">{{ $message }}</p> @enderror
+                        @error('newCapacity')
+                            <p class="text-[11px] text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                        @enderror
                     </div>
                     <div class="pt-3 flex gap-2">
                         <button type="button" x-on:click="openNewTable = false" class="flex-1 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors">Cancelar</button>
