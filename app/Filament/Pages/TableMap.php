@@ -2,38 +2,77 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Reservation;
 use App\Models\Table;
-use Filament\Pages\Page;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Livewire\Attributes\On;
-use Livewire\Attributes\Computed;
-use Illuminate\Support\Collection;
+use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 
 class TableMap extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-map';
+
     protected static string $view = 'filament.pages.table-map';
+
     protected static ?string $title = 'Mapa de Mesas';
+
     protected static ?string $navigationLabel = 'Mapa de Mesas';
+
     protected static ?string $navigationGroup = 'Operaciones del Salón';
+
     protected static ?int $navigationSort = 1;
+
+    /**
+     * Claves normalizadas de zona y su etiqueta de display.
+     * Las mesas pueden tener location legacy en español ("Terraza",
+     * "Salon"/"Salón", "Barra"); toda la app agrupa por estas claves.
+     */
+    public const ZONE_LABELS = [
+        'terraza' => 'Terraza',
+        'salon' => 'Salón',
+        'barra' => 'Barra',
+    ];
 
     // Propiedades principales
     public array $tablesByLocation = [];
+
     public array $stats = [
         'available' => 0,
         'occupied' => 0,
         'reserved' => 0,
+        'por_cobrar' => 0,
+        'por_cobrar_total' => 0,
+        'avg_stay' => null,
+        'next_turn' => null,
     ];
+
     public ?int $selectedTableId = null;
+
+    // Buscador y filtro de zona (estado del header)
+    public string $search = '';
+
+    public string $activeZone = 'all';
+
+    // Propiedades para el modal "Nueva Mesa"
+    public string $newNumber = '';
+
+    public string $newLocation = 'terraza';
+
+    public int $newCapacity = 4;
 
     // Propiedades para cobro de mesa
     public string $paymentMethod = 'cash';
+
     public array $selectedDiscounts = [];
+
     public float $totalAmount = 0;
+
     public float $discountAmount = 0;
 
     // Visibilidad según rol
@@ -58,61 +97,105 @@ class TableMap extends Page
         $this->loadTables();
     }
 
-    // Cargar las mesas agrupadas por ubicación
+    /**
+     * Cargar las mesas agrupadas por zona normalizada (terraza/salon/barra),
+     * enriquecidas con datos operativos reales para el mapa y el panel lateral.
+     */
     #[On('refresh-map')]
     public function loadTables(): void
     {
-        // Obtener todas las mesas con sus pedidos activos
+        // Obtener todas las mesas con pedidos activos, reservas futuras y mozo.
         $tables = Table::where('restaurant_id', 1)
-            ->with(['orders' => function($query) {
-                $query->whereNotIn('status', ['cancelled', 'completed'])
-                      ->with('orderProducts.product')
-                      ->orderBy('created_at', 'desc');
-            }])
+            ->with([
+                'orders' => fn ($query) => $query
+                    ->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                    ->with(['orderProducts.product', 'waiter'])
+                    ->orderBy('created_at', 'desc'),
+                'reservations' => fn ($query) => $query
+                    ->whereIn('status', Table::RESERVATION_ACTIVE_STATUSES)
+                    ->where('reservation_time', '>', now())
+                    ->with('customer')
+                    ->orderBy('reservation_time', 'asc'),
+                'waiter',
+            ])
             ->orderBy('number')
             ->get();
 
-        // Agrupar por ubicación
-        $this->tablesByLocation = $tables->groupBy('location')->map(function($locationTables) {
-            return $locationTables->map(function($table) {
-                $activeOrders = $table->orders;
-                $firstOrder = $activeOrders->first();
+        // Agrupar por zona normalizada, manteniendo el orden del plano (Terraza, Salón, Barra).
+        $zones = array_fill_keys(array_keys(self::ZONE_LABELS), []);
 
-                return [
-                    'id' => $table->id,
-                    'number' => $table->number,
-                    'location' => $table->location,
-                    'capacity' => $table->capacity,
-                    'status' => $table->status,
-                    'orders_count' => $activeOrders->count(),
-                    'total_amount' => $activeOrders->sum('total'),
-                    'elapsed_time' => $firstOrder ? $firstOrder->created_at->diffForHumans(null, true) : null,
-                    'first_order_id' => $firstOrder ? $firstOrder->id : null,
-                ];
-            })->values();
-        })->toArray();
+        foreach ($tables as $table) {
+            $zone = $this->normalizeZone($table->location);
+            $activeOrders = $table->orders;
+            $firstOrder = $activeOrders->first();
+            $nextReservation = $table->reservations->first();
 
-        // Calcular estadísticas globales
+            $zones[$zone][] = [
+                'id' => $table->id,
+                'number' => $table->number,
+                'location' => $table->location,
+                'zone' => $zone,
+                'zone_label' => self::ZONE_LABELS[$zone],
+                'capacity' => $table->capacity,
+                'status' => $table->status,
+                'orders_count' => $activeOrders->count(),
+                'total_amount' => $this->tablesTotal($activeOrders),
+                'elapsed_time' => $firstOrder?->created_at->diffForHumans(null, true),
+                'first_order_id' => $firstOrder?->id,
+                'has_reservation' => $nextReservation !== null,
+                'reservation_info' => $nextReservation ? $this->reservationInfo($nextReservation) : null,
+                'waiter_name' => $table->waiter?->name ?? $firstOrder?->waiter?->name ?? 'Sin asignar',
+            ];
+        }
+
+        $this->tablesByLocation = $zones;
+
+        // ── KPIs reales ────────────────────────────────────────────────
+        $occupied = $tables->where('status', Table::STATUS_OCCUPIED);
+        // POR COBRAR: mesas ocupadas con pedidos activos (cuenta + monto pendiente).
+        $occupiedWithOrders = $occupied->filter(fn (Table $t) => $t->orders->isNotEmpty());
+
+        // Promedio de permanencia: sobre mesas ocupadas con permanencia conocida.
+        $stayMinutes = $occupiedWithOrders
+            ->map(fn (Table $t) => $t->orders->first()->created_at->diffInMinutes(now()))
+            ->filter(fn (int $min) => $min >= 0);
+
+        // Próximo turno: la reserva futura más cercana entre mesas reservadas.
+        $nextTurnAt = $tables
+            ->where('status', Table::STATUS_RESERVED)
+            ->filter(fn (Table $t) => $t->reservations->isNotEmpty())
+            ->map(fn (Table $t) => $t->reservations->first()->reservation_time)
+            ->min();
+
         $this->stats = [
-            'available' => $tables->where('status', 'available')->count(),
-            'occupied' => $tables->where('status', 'occupied')->count(),
-            'reserved' => $tables->where('status', 'reserved')->count(),
+            'available' => $tables->where('status', Table::STATUS_AVAILABLE)->count(),
+            'occupied' => $occupied->count(),
+            'reserved' => $tables->where('status', Table::STATUS_RESERVED)->count(),
+            'por_cobrar' => $occupiedWithOrders->count(),
+            'por_cobrar_total' => round($occupiedWithOrders->sum(fn (Table $t) => $this->tablesTotal($t->orders)), 2),
+            'avg_stay' => $stayMinutes->isNotEmpty() ? (int) round($stayMinutes->avg()) : null,
+            'next_turn' => $nextTurnAt?->format('H:i'),
         ];
     }
 
-    // Abrir una mesa (MOSTRAR MODAL, no redirigir)
-    public function openTable(int $tableId): void
+    /**
+     * Seleccionar una mesa → muestra sus especificaciones en el panel derecho.
+     * Reemplaza el antiguo openTable() que abría un modal de detalle.
+     */
+    public function selectTable(int $tableId): void
     {
-        $this->selectedTableId = $tableId;
-        $this->loadTables(); // Refrescar datos
-        $this->dispatch('open-modal', id: 'table-details');
-    }
+        $this->authorizeStaffAccess();
 
-    // Cerrar modal
-    public function closeTableModal(): void
-    {
-        $this->selectedTableId = null;
-        $this->dispatch('close-modal', id: 'table-details');
+        $table = Table::find($tableId);
+
+        if (! $table || $table->restaurant_id !== 1) {
+            return;
+        }
+
+        $this->selectedTableId = $tableId;
+        $this->loadTables();
+
+        $this->dispatch('table-selected', message: "Mesa {$table->number} seleccionada para gestión");
     }
 
     // Verificación de acceso para acciones operativas del mapa (staff).
@@ -130,7 +213,7 @@ class TableMap extends Page
     {
         $this->authorizeStaffAccess();
 
-        if (!$this->selectedTableId) {
+        if (! $this->selectedTableId) {
             return;
         }
 
@@ -148,7 +231,7 @@ class TableMap extends Page
         $this->redirect(
             \App\Filament\Resources\OrderResource::getUrl('edit', [
                 'record' => $orderId,
-                'from_map' => 1  // 🔒 Indicar que viene del mapa para bloquear campos
+                'from_map' => 1, // 🔒 Indicar que viene del mapa para bloquear campos
             ])
         );
     }
@@ -159,14 +242,14 @@ class TableMap extends Page
         $this->authorizeStaffAccess();
 
         $table = Table::with('orders')->find($tableId);
-        
-        if (!$table) {
+
+        if (! $table) {
             return;
         }
 
         // Verificar que no haya pedidos activos
         $hasActiveOrders = $table->orders()
-            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->whereIn('status', Table::ORDER_OPEN_STATUSES)
             ->exists();
 
         if ($hasActiveOrders) {
@@ -175,6 +258,7 @@ class TableMap extends Page
                 ->body('La mesa tiene pedidos activos. Completa o cancela los pedidos primero.')
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -195,33 +279,109 @@ class TableMap extends Page
             ->body("Mesa #{$table->number} ahora está disponible")
             ->success()
             ->send();
-        
+
+        $this->loadTables();
+    }
+
+    /**
+     * Cambiar estado de la mesa (toggle simple disponible ↔ mantenimiento).
+     * Solo super_admin. No aplica si la mesa está ocupada/reservada o tiene
+     * pedidos activos.
+     */
+    public function toggleTableStatus(int $tableId): void
+    {
+        if (! auth()->user()?->hasRole('super_admin')) {
+            Notification::make()
+                ->title('Permiso denegado')
+                ->body('Solo el super_admin puede cambiar el estado de una mesa.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $table = Table::find($tableId);
+
+        if (! $table || $table->restaurant_id !== 1) {
+            return;
+        }
+
+        if ($table->hasActiveOrders() || in_array($table->status, [Table::STATUS_OCCUPIED, Table::STATUS_RESERVED], true)) {
+            Notification::make()
+                ->title('No se puede cambiar el estado')
+                ->body('La mesa está ocupada, reservada o tiene pedidos activos.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $next = $table->status === Table::STATUS_MAINTENANCE
+            ? Table::STATUS_AVAILABLE
+            : Table::STATUS_MAINTENANCE;
+
+        $table->update(['status' => $next]);
+
+        Notification::make()
+            ->title('Estado actualizado')
+            ->body('Mesa #'.$table->number.' ahora está '.($next === Table::STATUS_MAINTENANCE ? 'en mantenimiento' : 'disponible'))
+            ->success()
+            ->send();
+
+        $this->loadTables();
+    }
+
+    /**
+     * Crear una mesa nueva desde el modal "Añadir Nueva Mesa".
+     * Zona normalizada se persiste con el label de display (formato legacy español).
+     */
+    public function createTable(): void
+    {
+        $this->authorizeStaffAccess();
+
+        $validated = $this->validate([
+            'newNumber' => ['required', 'integer', 'min:1', Rule::unique('tables', 'number')->where(fn ($query) => $query->where('restaurant_id', 1))],
+            'newLocation' => ['required', Rule::in(array_keys(self::ZONE_LABELS))],
+            'newCapacity' => ['required', 'integer', 'between:1,20'],
+        ]);
+
+        $table = Table::create([
+            'number' => $validated['newNumber'],
+            'location' => self::ZONE_LABELS[$validated['newLocation']],
+            'capacity' => $validated['newCapacity'],
+            'status' => Table::STATUS_AVAILABLE,
+            'restaurant_id' => 1,
+        ]);
+
+        $this->reset('newNumber', 'newCapacity');
+        $this->newLocation = 'terraza';
+
+        $this->dispatch('table-selected', message: "Mesa {$table->number} ({$table->capacity} pax) dada de alta correctamente");
+        $this->dispatch('new-table-created');
+
         $this->loadTables();
     }
 
     // Preparar datos para cobrar la mesa
     public function prepareCobroMesa(int $tableId): void
     {
-        $table = Table::with(['orders' => function($query) {
-            $query->whereNotIn('status', ['cancelled', 'completed'])
-                  ->with('orderProducts');
+        $table = Table::with(['orders' => function ($query) {
+            $query->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                ->with('orderProducts');
         }])->find($tableId);
 
-        if (!$table || $table->orders->isEmpty()) {
+        if (! $table || $table->orders->isEmpty()) {
             Notification::make()
                 ->title('Error')
                 ->body('No hay pedidos activos para cobrar en esta mesa')
                 ->danger()
                 ->send();
+
             return;
         }
 
         // Calcular total de todos los pedidos
-        $total = $table->orders->sum(function($order) {
-            return $order->orderProducts->sum(function($item) {
-                return $item->quantity * $item->price;
-            });
-        });
+        $total = $this->tablesTotal($table->orders);
 
         $this->selectedTableId = $tableId;
         $this->totalAmount = $total;
@@ -235,6 +395,7 @@ class TableMap extends Page
     {
         if (empty($this->selectedDiscounts)) {
             $this->discountAmount = 0;
+
             return;
         }
 
@@ -260,21 +421,22 @@ class TableMap extends Page
         // Solo Cajero/super_admin pueden registrar ventas (SalePolicy::create).
         abort_unless(auth()->user()?->can('create', \App\Models\Sale::class), 403);
 
-        if (!$this->selectedTableId) {
+        if (! $this->selectedTableId) {
             return;
         }
 
-        $table = Table::with(['orders' => function($query) {
-            $query->whereNotIn('status', ['cancelled', 'completed'])
-                  ->with('orderProducts');
+        $table = Table::with(['orders' => function ($query) {
+            $query->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                ->with('orderProducts');
         }])->find($this->selectedTableId);
 
-        if (!$table || $table->orders->isEmpty()) {
+        if (! $table || $table->orders->isEmpty()) {
             Notification::make()
                 ->title('Error')
                 ->body('No hay pedidos activos para cobrar')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -283,12 +445,13 @@ class TableMap extends Page
             ->where('status', 'abierta')
             ->first();
 
-        if (!$cajaAbierta) {
+        if (! $cajaAbierta) {
             Notification::make()
                 ->title('Error')
                 ->body('No hay una caja abierta. Abre una caja antes de registrar ventas.')
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -299,13 +462,13 @@ class TableMap extends Page
                 // Crear una venta por cada pedido de la mesa
                 foreach ($table->orders as $order) {
                     // Calcular total del pedido individual
-                    $orderTotal = $order->orderProducts->sum(function($item) {
+                    $orderTotal = $order->orderProducts->sum(function ($item) {
                         return $item->quantity * $item->price;
                     });
 
                     // Calcular proporción de descuento para este pedido
-                    $proportionalDiscount = $this->totalAmount > 0 
-                        ? ($orderTotal / $this->totalAmount) * $this->discountAmount 
+                    $proportionalDiscount = $this->totalAmount > 0
+                        ? ($orderTotal / $this->totalAmount) * $this->discountAmount
                         : 0;
 
                     $orderFinalTotal = max(0, $orderTotal - $proportionalDiscount);
@@ -323,7 +486,7 @@ class TableMap extends Page
                     ]);
 
                     // Asociar descuentos proporcionalmente (solo si siguen activos)
-                    if (!empty($this->selectedDiscounts)) {
+                    if (! empty($this->selectedDiscounts)) {
                         foreach ($this->selectedDiscounts as $discountId) {
                             $discount = \App\Models\Discount::where('id', $discountId)
                                 ->where('is_active', true)
@@ -334,22 +497,17 @@ class TableMap extends Page
                                     : ($orderTotal / $this->totalAmount) * $discount->value;
 
                                 $sale->discounts()->attach($discountId, [
-                                    'amount_discounted' => $discountValue
+                                    'amount_discounted' => $discountValue,
                                 ]);
                             }
                         }
                     }
 
-                    // 🔒 El pedido cobrado deja de estar activo: pasa a 'completed'.
-                    // Sin esto, el mapa seguiría mostrando pedidos activos en la mesa
-                    // y la mesa no se liberaría correctamente tras el cobro.
+                    // El pedido cobrado deja de estar activo: pasa a 'completed'.
                     $order->update(['status' => 'completed']);
                 }
 
                 // Liberar la mesa con la máquina de estados centralizada.
-                // release() vuelve 'occupied' -> 'available' (o 'reserved' si hay
-                // reservas futuras vigentes). Si la mesa no partió de 'occupied'
-                // (estado legacy) no se toca nada.
                 $table->release();
             });
 
@@ -362,8 +520,7 @@ class TableMap extends Page
             // Refrescar y cerrar modales
             $this->loadTables();
             $this->dispatch('close-modal', id: 'cobrar-mesa');
-            $this->dispatch('close-modal', id: 'table-details');
-            
+
             // Limpiar variables
             $this->selectedTableId = null;
             $this->selectedDiscounts = [];
@@ -380,53 +537,155 @@ class TableMap extends Page
         }
     }
 
-    // Propiedad computada: Obtener la mesa seleccionada con todos sus detalles
+    // Propiedad computada: la mesa seleccionada con todas sus especificaciones
+    // para el panel derecho (detalle, comanda en curso y total a pagar).
     #[Computed]
     public function selectedTable(): ?array
     {
-        if (!$this->selectedTableId) {
+        if (! $this->selectedTableId) {
             return null;
         }
 
-        // Buscar en todas las ubicaciones
-        foreach ($this->tablesByLocation as $location => $tables) {
-            foreach ($tables as $table) {
-                if ($table['id'] === $this->selectedTableId) {
-                    // Obtener pedidos completos con productos
-                    $tableModel = Table::with(['orders' => function($query) {
-                        $query->whereNotIn('status', ['cancelled', 'completed'])
-                              ->with('orderProducts.product')
-                              ->orderBy('created_at', 'desc');
-                    }])->find($table['id']);
+        $table = Table::with([
+            'orders' => fn ($query) => $query
+                ->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                ->with(['orderProducts.product', 'waiter'])
+                ->orderBy('created_at', 'desc'),
+            'reservations' => fn ($query) => $query
+                ->whereIn('status', Table::RESERVATION_ACTIVE_STATUSES)
+                ->where('reservation_time', '>', now())
+                ->with('customer')
+                ->orderBy('reservation_time', 'asc'),
+            'waiter',
+        ])->find($this->selectedTableId);
 
-                    if (!$tableModel) {
-                        return $table;
-                    }
-
-                    // Enriquecer con datos completos de pedidos
-                    $table['orders'] = $tableModel->orders->map(function($order) {
-                        return [
-                            'id' => $order->id,
-                            'status' => $order->status,
-                            'total' => $order->total ?? 0,
-                            'created_at' => $order->created_at->diffForHumans(),
-                            'created_time' => $order->created_at->format('H:i'),
-                            'products' => $order->orderProducts->map(function($item) {
-                                return [
-                                    'name' => $item->product->name ?? 'Producto',
-                                    'quantity' => $item->quantity,
-                                    'price' => $item->price ?? 0,
-                                ];
-                            })->toArray(),
-                        ];
-                    })->toArray();
-
-                    return $table;
-                }
-            }
+        if (! $table || $table->restaurant_id !== 1) {
+            return null;
         }
 
-        return null;
+        $zone = $this->normalizeZone($table->location);
+        $activeOrders = $table->orders;
+        $firstOrder = $activeOrders->first();
+        $nextReservation = $table->reservations->first();
+
+        return [
+            'id' => $table->id,
+            'number' => $table->number,
+            'zone' => $zone,
+            'zone_label' => self::ZONE_LABELS[$zone],
+            'location' => $table->location,
+            'capacity' => $table->capacity,
+            'status' => $table->status,
+            'status_label' => $this->statusLabel($table),
+            'waiter_name' => $table->waiter?->name ?? $firstOrder?->waiter?->name ?? 'Sin asignar',
+            'permanence' => $firstOrder?->created_at->diffForHumans(null, true),
+            'orders_count' => $activeOrders->count(),
+            'total_amount' => $this->tablesTotal($activeOrders),
+            'first_order_id' => $firstOrder?->id,
+            'has_reservation' => $nextReservation !== null,
+            'reservation_info' => $nextReservation ? $this->reservationInfo($nextReservation) : null,
+            'orders' => $activeOrders->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'status' => $order->status,
+                    'created_at' => $order->created_at->diffForHumans(),
+                    'created_time' => $order->created_at->format('H:i'),
+                    'subtotal' => round($order->orderProducts->sum(function ($item) {
+                        return $item->quantity * $item->price;
+                    }), 2),
+                    'products' => $order->orderProducts->map(function ($item) {
+                        return [
+                            'name' => $item->product?->name ?? 'Producto',
+                            'quantity' => $item->quantity,
+                            'price' => (float) $item->price,
+                        ];
+                    })->toArray(),
+                ];
+            })->toArray(),
+        ];
+    }
+
+    /**
+     * ¿La mesa coincide con el buscador? Filtra por número de mesa,
+     * nombre del comensal reservado e info de la reserva.
+     */
+    public function tableMatchesSearch(array $table): bool
+    {
+        if ($this->search === '') {
+            return true;
+        }
+
+        $query = mb_strtolower(trim($this->search));
+
+        $haystack = mb_strtolower(implode(' ', [
+            (string) $table['number'],
+            (string) ($table['waiter_name'] ?? ''),
+            (string) ($table['reservation_info'] ?? ''),
+        ]));
+
+        return str_contains($haystack, $query);
+    }
+
+    // ¿El usuario actual es super_admin? (para habilitar "Cambiar Estado")
+    public function isSuperAdmin(): bool
+    {
+        return (bool) (auth()->user()?->hasRole('super_admin'));
+    }
+
+    /**
+     * Normalizar la location de la mesa (legacy en español) a una clave de zona
+     * consistente: lowercase sin tildes → terraza | salon | barra.
+     */
+    private function normalizeZone(?string $location): string
+    {
+        $key = strtolower(Str::ascii(trim((string) $location)));
+
+        return match ($key) {
+            'terraza', 'exterior', 'patio' => 'terraza',
+            'barra', 'bar' => 'barra',
+            // 'salon', 'interior', 'vip', 'ventana', 'comedor' y cualquier otra
+            // ubicación no mapeada caen en 'salon' para no romper el plano.
+            default => 'salon',
+        };
+    }
+
+    /**
+     * Etiqueta legible del estado para el panel de detalle.
+     */
+    private function statusLabel(Table $table): string
+    {
+        return match ($table->status) {
+            Table::STATUS_AVAILABLE => 'Disponible',
+            Table::STATUS_OCCUPIED => 'Ocupada ('.$table->capacity.' pax)',
+            Table::STATUS_RESERVED => 'Reservada',
+            Table::STATUS_MAINTENANCE => 'Mantenimiento',
+            default => ucfirst((string) $table->status),
+        };
+    }
+
+    /**
+     * Info de la próxima reserva: "Familia Gómez (21:30h)".
+     */
+    private function reservationInfo(Reservation $reservation): string
+    {
+        $customerName = $reservation->customer?->name ?? 'Cliente';
+
+        return "{$customerName} ({$reservation->reservation_time->format('H:i')}h)";
+    }
+
+    /**
+     * Total de una colección de pedidos activos: suma quantity * price
+     * de todos sus ítems (Order no tiene columna total).
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\Order>  $orders
+     */
+    private function tablesTotal($orders): float
+    {
+        return round($orders->sum(function ($order) {
+            return $order->orderProducts->sum(function ($item) {
+                return $item->quantity * $item->price;
+            });
+        }), 2);
     }
 
     // Acciones del header
