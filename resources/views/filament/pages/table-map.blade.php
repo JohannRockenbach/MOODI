@@ -9,57 +9,57 @@
                     'label' => 'DISPONIBLES',
                     'value' => $stats['available'],
                     'sub' => 'Listas para asignar',
-                    'value_color' => 'text-amber-400',
-                    'card' => 'border-slate-800/80',
+                    'value_color' => 'text-amber-600 dark:text-amber-400',
+                    'card' => 'border-slate-200 dark:border-slate-800/80',
                     'icon' => 'check',
-                    'icon_color' => 'text-amber-400',
-                    'icon_bg' => 'bg-amber-500/10 border-amber-500/20',
+                    'icon_color' => 'text-amber-600 dark:text-amber-400',
+                    'icon_bg' => 'bg-amber-100 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20',
                 ],
                 [
                     'label' => 'OCUPADAS',
                     'value' => $stats['occupied'],
                     'sub' => $stats['avg_stay'] !== null ? 'Promedio: '.$stats['avg_stay'].' min' : 'Sin permanencia registrada',
-                    'value_color' => 'text-rose-400',
-                    'card' => 'border-slate-800/80',
+                    'value_color' => 'text-rose-600 dark:text-rose-400',
+                    'card' => 'border-slate-200 dark:border-slate-800/80',
                     'icon' => 'fire',
-                    'icon_color' => 'text-rose-400',
-                    'icon_bg' => 'bg-rose-500/10 border-rose-500/20',
+                    'icon_color' => 'text-rose-600 dark:text-rose-400',
+                    'icon_bg' => 'bg-rose-100 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20',
                 ],
                 [
                     'label' => 'RESERVADAS',
                     'value' => $stats['reserved'],
                     'sub' => $stats['next_turn'] ? 'Próx. turno '.$stats['next_turn'].'h' : 'Sin próximos turnos',
-                    'value_color' => 'text-amber-400',
-                    'card' => 'border-amber-500/30',
+                    'value_color' => 'text-amber-600 dark:text-amber-400',
+                    'card' => 'border-amber-200 dark:border-amber-500/30',
                     'icon' => 'clock',
-                    'icon_color' => 'text-amber-400',
-                    'icon_bg' => 'bg-amber-500/20 border-amber-500/40',
+                    'icon_color' => 'text-amber-600 dark:text-amber-400',
+                    'icon_bg' => 'bg-amber-100 border-amber-200 dark:bg-amber-500/20 dark:border-amber-500/40',
                 ],
                 [
                     'label' => 'POR COBRAR',
                     'value' => $stats['por_cobrar'],
                     'sub' => 'Pendiente: $'.number_format($stats['por_cobrar_total'], 2),
-                    'value_color' => 'text-cyan-400',
-                    'card' => 'border-cyan-500/30',
+                    'value_color' => 'text-cyan-600 dark:text-cyan-400',
+                    'card' => 'border-cyan-200 dark:border-cyan-500/30',
                     'icon' => 'receipt',
-                    'icon_color' => 'text-cyan-400',
-                    'icon_bg' => 'bg-cyan-500/10 border-cyan-500/20',
+                    'icon_color' => 'text-cyan-600 dark:text-cyan-400',
+                    'icon_bg' => 'bg-cyan-100 border-cyan-200 dark:bg-cyan-500/10 dark:border-cyan-500/20',
                 ],
             ];
         @endphp
 
         {{-- ============ HEADER: título, badge, buscador, filtros y acciones ============ --}}
-        <div class="bg-[#0d0d0d] rounded-2xl border border-slate-800/80 p-6 shadow-xl">
+        <div class="bg-white dark:bg-[#0d0d0d] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-6 shadow-xl">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-2">
-                        <h1 class="text-2xl font-bold tracking-tight text-white">Mapa de Mesas</h1>
-                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Mapa de Mesas</h1>
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
                             En Directo
                         </span>
                     </div>
-                    <p class="text-sm text-slate-400 hidden md:block">Servicio Noche / Cena • Plano Arquitectónico Digital</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 hidden md:block">Servicio Noche / Cena • Plano Arquitectónico Digital</p>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
@@ -70,16 +70,16 @@
                             wire:model.live.debounce.300ms="search"
                             type="text"
                             placeholder="Buscar mesa o comensales..."
-                            class="w-full bg-[#0f0f0f] text-sm rounded-lg pl-9 pr-3 py-3 border border-slate-800 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
+                            class="w-full bg-slate-100 dark:bg-[#0f0f0f] text-sm rounded-lg pl-9 pr-3 py-3 border border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-colors"
                         />
                     </div>
 
                     {{-- Filtros por zona (segmented) --}}
-                    <div class="flex bg-[#0f0f0f] p-1 rounded-lg border border-slate-800 text-xs">
+                    <div class="flex bg-slate-100 dark:bg-[#0f0f0f] p-1 rounded-lg border border-slate-300 dark:border-slate-800 text-xs">
                         @foreach(['all' => 'Todas', 'terraza' => 'Terraza', 'salon' => 'Salón', 'barra' => 'Barra'] as $zoneKey => $zoneLabel)
                             <button
                                 wire:click="$set('activeZone', '{{ $zoneKey }}')"
-                                class="px-3 py-1.5 rounded-md {{ $activeZone === $zoneKey ? 'bg-amber-500 text-slate-950 font-bold' : 'font-medium text-slate-400 hover:text-slate-200' }} transition-colors"
+                                class="px-3 py-1.5 rounded-md {{ $activeZone === $zoneKey ? 'bg-amber-500 text-white font-bold' : 'font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200' }} transition-colors"
                             >
                                 {{ $zoneLabel }}
                             </button>
@@ -90,7 +90,7 @@
                         {{-- Nueva Mesa --}}
                         <button
                             x-on:click="openNewTable = true"
-                            class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold shadow-md transition-all"
+                            class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-white rounded-lg text-xs font-bold shadow-md transition-all"
                         >
                             <x-heroicon-o-plus class="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Nueva Mesa</span>
@@ -98,7 +98,7 @@
                         {{-- Fullscreen --}}
                         <button
                             x-on:click="document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()"
-                            class="hidden sm:inline-flex p-2 rounded-lg bg-[#0f0f0f] border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors"
+                            class="hidden sm:inline-flex p-2 rounded-lg bg-slate-100 dark:bg-[#0f0f0f] border border-slate-300 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
                             title="Pantalla Completa"
                         >
                             <x-heroicon-o-arrows-pointing-out class="w-4 h-4" />
@@ -111,9 +111,9 @@
         {{-- ============ KPIs (4) ============ --}}
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4" data-purpose="kpi-metrics-grid">
             @foreach($kpis as $kpi)
-                <div class="bg-[#0d0d0d] rounded-xl p-6 border {{ $kpi['card'] }} shadow-md relative overflow-hidden flex items-center justify-between">
+                <div class="bg-white dark:bg-[#0d0d0d] rounded-xl p-6 border {{ $kpi['card'] }} shadow-md relative overflow-hidden flex items-center justify-between">
                     <div class="z-10">
-                        <p class="text-xs sm:text-sm tracking-wider uppercase font-semibold text-slate-400">{{ $kpi['label'] }}</p>
+                        <p class="text-xs sm:text-sm tracking-wider uppercase font-semibold text-slate-500 dark:text-slate-400">{{ $kpi['label'] }}</p>
                         <p class="text-4xl sm:text-5xl font-black {{ $kpi['value_color'] }} mt-1">{{ $kpi['value'] }}</p>
                         <p class="text-sm text-slate-500 mt-0.5">{{ $kpi['sub'] }}</p>
                     </div>
@@ -142,10 +142,10 @@
                     @endif
 
                     {{-- Bloque de zona --}}
-                    <article wire:key="zone-{{ $zoneKey }}" class="zone-block bg-[#080808] border border-slate-800/80 rounded-2xl p-6 shadow-lg relative" data-zone-id="{{ $zoneKey }}">
-                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4">
+                    <article wire:key="zone-{{ $zoneKey }}" class="zone-block bg-white dark:bg-[#080808] border border-slate-200 dark:border-slate-800/80 rounded-2xl p-6 shadow-lg relative" data-zone-id="{{ $zoneKey }}">
+                        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-3 mb-4">
                             <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                <div class="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 dark:bg-amber-500/15 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                                     @if($zoneKey === 'terraza')
                                         <x-heroicon-o-sun class="w-4 h-4" />
                                     @elseif($zoneKey === 'barra')
@@ -154,9 +154,9 @@
                                         <x-heroicon-o-building-storefront class="w-4 h-4" />
                                     @endif
                                 </div>
-                                <h2 class="text-xl font-extrabold tracking-wider text-slate-100 uppercase">{{ \App\Filament\Pages\TableMap::ZONE_LABELS[$zoneKey] }}</h2>
+                                <h2 class="text-xl font-extrabold tracking-wider text-slate-900 dark:text-slate-100 uppercase">{{ \App\Filament\Pages\TableMap::ZONE_LABELS[$zoneKey] }}</h2>
                             </div>
-                            <span class="px-3 py-1 bg-amber-500 text-slate-950 font-bold text-sm rounded-lg tracking-wide">
+                            <span class="px-3 py-1 bg-amber-500 text-white font-bold text-sm rounded-lg tracking-wide">
                                 {{ count($locationTables) }} {{ $zoneKey === 'barra' ? 'puestos' : 'mesas' }}
                             </span>
                         </div>
@@ -165,10 +165,10 @@
                             @foreach($locationTables as $table)
                                 @php
                                     $sc = match ($table['status']) {
-                                        'occupied' => 'border-rose-500/50 bg-rose-500/10 border',
-                                        'reserved' => 'border-amber-500/60 bg-amber-500/15 border',
-                                        'maintenance' => 'border-slate-700 bg-slate-900/40 border border-dashed',
-                                        default => 'border-slate-800 bg-[#0f0f0f] border',
+                                        'occupied' => 'border-rose-500 bg-rose-50 border dark:border-rose-500/50 dark:bg-rose-500/10',
+                                        'reserved' => 'border-amber-500 bg-amber-50 border dark:border-amber-500/60 dark:bg-amber-500/15',
+                                        'maintenance' => 'border-slate-300 bg-slate-100 border border-dashed dark:border-slate-700 dark:bg-slate-900/40',
+                                        default => 'border-slate-300 bg-white border dark:border-slate-800 dark:bg-[#0f0f0f]',
                                     };
                                     $round = $zoneKey === 'barra' ? 'rounded-full' : 'rounded-xl';
                                     $matches = $this->tableMatchesSearch($table);
@@ -180,37 +180,37 @@
                                     title="Mesa {{ $table['number'] }} — {{ $table['zone_label'] }}"
                                 >
                                     @if($table['status'] === 'occupied' && $table['orders_count'] > 0)
-                                        <span class="badge-counter absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center border-2 border-[#080808]">{{ $table['orders_count'] }}</span>
+                                        <span class="badge-counter absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center border-2 border-white dark:border-[#080808]">{{ $table['orders_count'] }}</span>
                                     @endif
 
                                     {{-- Forma de la mesa: redondeada con 4 sillas / barra circular con 1 silla --}}
                                     <div class="relative w-28 h-28 my-1 flex items-center justify-center">
-                                        <div class="{{ $round }} absolute inset-2 border-2 {{ $table['status'] === 'occupied' ? 'border-rose-500/60 bg-rose-500/20' : ($table['status'] === 'reserved' ? 'border-amber-500/70 bg-amber-500/20' : 'border-amber-500/40 bg-slate-900/60') }} flex items-center justify-center">
-                                            <span class="text-4xl font-black {{ $table['status'] === 'occupied' ? 'text-rose-300' : ($table['status'] === 'reserved' ? 'text-amber-300' : 'text-white') }}">{{ $table['number'] }}</span>
+                                        <div class="{{ $round }} absolute inset-2 border-2 {{ $table['status'] === 'occupied' ? 'border-rose-500/60 bg-rose-500/20' : ($table['status'] === 'reserved' ? 'border-amber-500/70 bg-amber-500/20' : 'border-amber-500/40 bg-slate-100 dark:bg-slate-900/60') }} flex items-center justify-center">
+                                            <span class="text-4xl font-black {{ $table['status'] === 'occupied' ? 'text-rose-600 dark:text-rose-300' : ($table['status'] === 'reserved' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-white') }}">{{ $table['number'] }}</span>
                                         </div>
                                         @if($zoneKey === 'barra')
-                                            <span class="absolute top-0 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-400' : 'bg-amber-400' }}"></span>
+                                            <span class="absolute top-0 left-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400' }}"></span>
                                         @else
-                                            <span class="absolute top-0 left-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-400' : 'bg-amber-400' }}"></span>
-                                            <span class="absolute top-0 right-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-400' : 'bg-amber-400' }}"></span>
-                                            <span class="absolute bottom-0 left-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-400' : 'bg-amber-400' }}"></span>
-                                            <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-400' : 'bg-amber-400' }}"></span>
+                                            <span class="absolute top-0 left-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400' }}"></span>
+                                            <span class="absolute top-0 right-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400' }}"></span>
+                                            <span class="absolute bottom-0 left-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400' }}"></span>
+                                            <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full {{ $table['status'] === 'occupied' ? 'bg-rose-500 dark:bg-rose-400' : 'bg-amber-500 dark:bg-amber-400' }}"></span>
                                         @endif
                                     </div>
 
-                                    <span class="text-sm {{ $table['status'] === 'occupied' ? 'font-bold text-rose-300' : ($table['status'] === 'reserved' ? 'font-bold text-amber-300' : 'font-semibold text-slate-400') }}">{{ $table['capacity'] }} pax</span>
+                                    <span class="text-sm {{ $table['status'] === 'occupied' ? 'font-bold text-rose-600 dark:text-rose-300' : ($table['status'] === 'reserved' ? 'font-bold text-amber-700 dark:text-amber-300' : 'font-semibold text-slate-500 dark:text-slate-400') }}">{{ $table['capacity'] }} pax</span>
 
                                     @if($table['status'] === 'occupied' && $table['orders_count'] > 0)
-                                        <span class="text-xs text-rose-300/90 flex items-center gap-1 mt-0.5">
+                                        <span class="text-xs text-rose-600 dark:text-rose-300/90 flex items-center gap-1 mt-0.5">
                                             <x-heroicon-o-document-text class="w-3 h-3" />
                                             #{{ $table['first_order_id'] }} · {{ $table['elapsed_time'] }}
                                         </span>
                                     @elseif($table['status'] === 'reserved' && $table['has_reservation'])
-                                        <span class="text-xs text-amber-300/90 truncate w-full text-center mt-0.5">{{ $table['reservation_info'] }}</span>
+                                        <span class="text-xs text-amber-700 dark:text-amber-300/90 truncate w-full text-center mt-0.5">{{ $table['reservation_info'] }}</span>
                                     @endif
 
                                     {{-- Botón de estado --}}
-                                    <span class="w-full text-center py-1.5 rounded {{ $table['status'] === 'occupied' ? 'bg-rose-500/90 text-white' : ($table['status'] === 'reserved' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40' : 'bg-amber-500 hover:bg-amber-400 text-slate-950') }} text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm transition-colors">
+                                    <span class="w-full text-center py-1.5 rounded {{ $table['status'] === 'occupied' ? 'bg-rose-500 text-white dark:bg-rose-500/90' : ($table['status'] === 'reserved' ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-500/30 dark:text-amber-300 dark:border-amber-500/40' : 'bg-amber-500 hover:bg-amber-400 text-white') }} text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm transition-colors">
                                         @if($table['status'] === 'occupied')
                                             <x-heroicon-s-fire class="w-3 h-3" /> OCUPADA
                                         @elseif($table['status'] === 'reserved')
@@ -226,69 +226,69 @@
                         </div>
                     </article>
                 @empty
-                    <div class="bg-[#0d0d0d] rounded-2xl border border-slate-800/80 p-12 text-center">
-                        <h3 class="text-xl font-bold text-white mb-2">No hay mesas registradas</h3>
-                        <p class="text-sm text-slate-400">Creá una mesa para empezar a gestionar tu salón.</p>
+                    <div class="bg-white dark:bg-[#0d0d0d] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-12 text-center">
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">No hay mesas registradas</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">Creá una mesa para empezar a gestionar tu salón.</p>
                     </div>
                 @endforelse
             </section>
 
             {{-- COLUMNA DERECHA: PANEL DE DETALLE (30%, sticky) --}}
-            <aside class="lg:col-span-5 bg-[#0d0d0d] border border-slate-800 rounded-2xl p-6 shadow-2xl sticky top-20" data-purpose="table-detail-panel">
+            <aside class="lg:col-span-5 bg-white dark:bg-[#0d0d0d] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl sticky top-20" data-purpose="table-detail-panel">
                 @if($selected)
                     {{-- Cabecera del panel --}}
-                    <div class="flex items-start justify-between border-b border-slate-800 pb-4 mb-4">
+                    <div class="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-4">
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-xs uppercase font-bold tracking-wider text-emerald-400">{{ $selected['zone_label'] }}</span>
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                                <span class="text-xs text-cyan-400 font-mono">#M-{{ $selected['number'] }}</span>
+                                <span class="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">{{ $selected['zone_label'] }}</span>
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                                <span class="text-xs text-cyan-600 dark:text-cyan-400 font-mono">#M-{{ $selected['number'] }}</span>
                             </div>
-                            <h3 class="text-2xl font-black text-white mt-1 flex items-center gap-2">
+                            <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
                                 <span>Mesa</span>
-                                <span class="text-amber-400 text-4xl font-black">{{ $selected['number'] }}</span>
+                                <span class="text-amber-600 dark:text-amber-400 text-4xl font-black">{{ $selected['number'] }}</span>
                             </h3>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full text-sm font-bold {{ $selected['status'] === 'occupied' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : ($selected['status'] === 'reserved' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40') }} flex items-center gap-1.5 shrink-0">
-                            <span class="w-2 h-2 rounded-full {{ $selected['status'] === 'occupied' ? 'bg-rose-500 animate-pulse' : ($selected['status'] === 'reserved' ? 'bg-amber-400' : 'bg-emerald-400') }}"></span>
+                        <span class="px-2.5 py-1 rounded-full text-sm font-bold {{ $selected['status'] === 'occupied' ? 'bg-rose-100 text-rose-700 border border-rose-300 dark:bg-rose-500/20 dark:text-rose-300 dark:border-rose-500/40' : ($selected['status'] === 'reserved' ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40' : 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40') }} flex items-center gap-1.5 shrink-0">
+                            <span class="w-2 h-2 rounded-full {{ $selected['status'] === 'occupied' ? 'bg-rose-500 animate-pulse' : ($selected['status'] === 'reserved' ? 'bg-amber-500 dark:bg-amber-400' : 'bg-emerald-500 dark:bg-emerald-400') }}"></span>
                             {{ $selected['status_label'] }}
                         </span>
                     </div>
 
                     {{-- Ficha de datos operativos --}}
-                    <div class="space-y-3 bg-[#0f0f0f] p-3.5 rounded-xl border border-slate-800/90 text-sm">
-                        <div class="flex justify-between items-center text-slate-300">
-                            <span class="text-slate-400">Camarero Asignado:</span>
-                            <span class="font-semibold text-white">{{ $selected['waiter_name'] }}</span>
+                    <div class="space-y-3 bg-slate-50 dark:bg-[#0f0f0f] p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/90 text-sm">
+                        <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                            <span class="text-slate-500 dark:text-slate-400">Camarero Asignado:</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">{{ $selected['waiter_name'] }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-slate-300">
-                            <span class="text-slate-400">Permanencia:</span>
-                            <span class="font-semibold text-amber-400">{{ $selected['permanence'] ?? '—' }}</span>
+                        <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                            <span class="text-slate-500 dark:text-slate-400">Permanencia:</span>
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">{{ $selected['permanence'] ?? '—' }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-slate-300">
-                            <span class="text-slate-400">Nº Comanda:</span>
-                            <span class="font-mono text-cyan-400 font-bold">{{ $selected['first_order_id'] ? '#'.$selected['first_order_id'] : 'Sin Comanda' }}</span>
+                        <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                            <span class="text-slate-500 dark:text-slate-400">Nº Comanda:</span>
+                            <span class="font-mono text-cyan-600 dark:text-cyan-400 font-bold">{{ $selected['first_order_id'] ? '#'.$selected['first_order_id'] : 'Sin Comanda' }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-slate-300">
-                            <span class="text-slate-400">Capacidad Máx:</span>
-                            <span class="font-semibold text-white">{{ $selected['capacity'] }} {{ $selected['capacity'] === 1 ? 'Comensal' : 'Comensales' }}</span>
+                        <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                            <span class="text-slate-500 dark:text-slate-400">Capacidad Máx:</span>
+                            <span class="font-semibold text-slate-900 dark:text-white">{{ $selected['capacity'] }} {{ $selected['capacity'] === 1 ? 'Comensal' : 'Comensales' }}</span>
                         </div>
                         @if($selected['has_reservation'])
-                            <div class="flex justify-between items-center text-slate-300 border-t border-slate-800 pt-3">
-                                <span class="text-slate-400">Próxima Reserva:</span>
-                                <span class="font-semibold text-amber-300">{{ $selected['reservation_info'] }}</span>
+                            <div class="flex justify-between items-center text-slate-700 dark:text-slate-300 border-t border-slate-200 dark:border-slate-800 pt-3">
+                                <span class="text-slate-500 dark:text-slate-400">Próxima Reserva:</span>
+                                <span class="font-semibold text-amber-600 dark:text-amber-300">{{ $selected['reservation_info'] }}</span>
                             </div>
                         @endif
                     </div>
 
                     {{-- Comanda en curso --}}
                     <div class="mt-4">
-                        <div class="flex items-center justify-between text-sm font-bold text-slate-300 mb-2">
+                        <div class="flex items-center justify-between text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                             <span class="flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
                                 Comanda en Curso
                             </span>
-                            <span class="text-emerald-400 font-semibold">
+                            <span class="text-emerald-600 dark:text-emerald-400 font-semibold">
                                 {{ collect($selected['orders'])->sum(fn ($o) => count($o['products'])) }} artículos
                             </span>
                         </div>
@@ -297,25 +297,25 @@
                         @if($orderItems->isNotEmpty())
                             <div class="space-y-2 max-h-44 overflow-y-auto pr-1" id="order-items-list">
                                 @foreach($orderItems as $item)
-                                    <div class="flex items-center justify-between bg-[#070707] p-2.5 rounded-lg border border-slate-800 text-sm">
+                                    <div class="flex items-center justify-between bg-slate-50 dark:bg-[#070707] p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm">
                                         <div class="flex items-center gap-2 min-w-0">
-                                            <span class="w-5 h-5 rounded bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[10px] shrink-0">{{ $item['quantity'] }}x</span>
-                                            <span class="text-slate-200 truncate">{{ $item['name'] }}</span>
+                                            <span class="w-5 h-5 rounded bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 font-bold flex items-center justify-center text-[10px] shrink-0">{{ $item['quantity'] }}x</span>
+                                            <span class="text-slate-700 dark:text-slate-200 truncate">{{ $item['name'] }}</span>
                                         </div>
-                                        <span class="font-semibold text-slate-100 shrink-0 ml-2">${{ number_format($item['quantity'] * $item['price'], 2) }}</span>
+                                        <span class="font-semibold text-slate-900 dark:text-slate-100 shrink-0 ml-2">${{ number_format($item['quantity'] * $item['price'], 2) }}</span>
                                     </div>
                                 @endforeach
                             </div>
                         @else
-                            <div class="py-6 text-center text-slate-500 text-sm bg-[#070707] rounded-lg border border-dashed border-slate-800">
+                            <div class="py-6 text-center text-slate-500 dark:text-slate-500 text-sm bg-slate-50 dark:bg-[#070707] rounded-lg border border-dashed border-slate-300 dark:border-slate-800">
                                 Mesa lista y sin consumición activa
                             </div>
                         @endif
 
                         {{-- Total a pagar --}}
-                        <div class="mt-3 pt-3 border-t border-slate-800 flex justify-between items-baseline">
-                            <span class="text-xs uppercase tracking-wider font-bold text-slate-400">Total a Pagar</span>
-                            <span class="text-4xl font-black text-emerald-400">${{ number_format($selected['total_amount'], 2) }}</span>
+                        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline">
+                            <span class="text-xs uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Total a Pagar</span>
+                            <span class="text-4xl font-black text-emerald-600 dark:text-emerald-400">${{ number_format($selected['total_amount'], 2) }}</span>
                         </div>
                     </div>
 
@@ -323,7 +323,7 @@
                     <div class="mt-5 space-y-2">
                         <button
                             wire:click="{{ $selected['first_order_id'] ? 'editOrder('.$selected['first_order_id'].')' : 'createOrderForTable' }}"
-                            class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-black rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+                            class="w-full py-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-white font-black rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
                         >
                             <x-heroicon-o-pencil-square class="w-4 h-4 stroke-[2.5]" />
                             <span>{{ $selected['first_order_id'] ? 'Ver / Gestionar Comanda' : 'Crear Comanda' }}</span>
@@ -332,7 +332,7 @@
                             wire:click="prepareCobroMesa({{ $selected['id'] }})"
                             x-on:click="$dispatch('open-modal', { id: 'cobrar-mesa' })"
                             @disabled($selected['orders_count'] === 0)
-                            class="w-full py-2.5 {{ $selected['orders_count'] === 0 ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' }} active:scale-[0.99] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-md"
+                            class="w-full py-2.5 {{ $selected['orders_count'] === 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white' }} active:scale-[0.99] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-md"
                             @if($selected['orders_count'] === 0) title="No hay pedidos activos para cobrar" @endif
                         >
                             <x-heroicon-o-credit-card class="w-4 h-4" />
@@ -341,46 +341,46 @@
                     </div>
 
                     {{-- Acciones rápidas secundarias --}}
-                    <div class="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-300">
-                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-[#0f0f0f] border border-slate-800 text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
-                            <x-heroicon-o-arrows-right-left class="w-3.5 h-3.5 text-cyan-400" />
+                    <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
+                            <x-heroicon-o-arrows-right-left class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                             Cambiar Mesa
                         </button>
-                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-[#0f0f0f] border border-slate-800 text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
-                            <x-heroicon-o-plus class="w-3.5 h-3.5 text-emerald-400" />
+                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
+                            <x-heroicon-o-plus class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             Unir Mesas
                         </button>
                         @if($this->isSuperAdmin())
                             <button
                                 wire:click="toggleTableStatus({{ $selected['id'] }})"
-                                class="p-3.5 rounded-lg bg-[#0f0f0f] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors"
+                                class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors"
                             >
-                                <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-amber-400" />
+                                <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                 Cambiar Estado
                             </button>
                         @else
-                            <button disabled title="Solo super_admin puede cambiar el estado" class="p-3.5 rounded-lg bg-[#0f0f0f] border border-slate-800 text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
-                                <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-amber-400" />
+                            <button disabled title="Solo super_admin puede cambiar el estado" class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
+                                <x-heroicon-o-arrow-path class="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                 Cambiar Estado
                             </button>
                         @endif
                         <button
                             wire:click="freeTable({{ $selected['id'] }})"
                             wire:confirm="¿Liberar la mesa {{ $selected['number'] }}?"
-                            class="p-3.5 rounded-lg bg-[#0f0f0f] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors text-rose-400"
+                            class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors text-rose-600 dark:text-rose-400"
                         >
-                            <x-heroicon-o-trash class="w-3.5 h-3.5 text-rose-400" />
+                            <x-heroicon-o-trash class="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                             Liberar Mesa
                         </button>
                     </div>
                 @else
                     {{-- Estado vacío amigable --}}
                     <div class="py-14 text-center">
-                        <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-100 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
                             <x-heroicon-o-map class="w-8 h-8" />
                         </div>
-                        <h3 class="text-lg font-bold text-white mb-1">Seleccioná una mesa para ver sus detalles</h3>
-                        <p class="text-xs text-slate-400">Tocá cualquier mesa del plano para ver sus especificaciones, comanda en curso y acciones de gestión.</p>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">Seleccioná una mesa para ver sus detalles</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Tocá cualquier mesa del plano para ver sus especificaciones, comanda en curso y acciones de gestión.</p>
                     </div>
                 @endif
             </aside>
@@ -388,62 +388,62 @@
 
         {{-- ============ MODAL: AÑADIR NUEVA MESA ============ --}}
         <div x-show="openNewTable" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-transition.opacity>
-            <div x-on:click.outside="openNewTable = false" class="bg-[#0d0d0d] border border-amber-500/40 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+            <div x-on:click.outside="openNewTable = false" class="bg-white dark:bg-[#0d0d0d] border border-amber-500/60 dark:border-amber-500/40 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                         Añadir Nueva Mesa al Plano
                     </h3>
-                    <button x-on:click="openNewTable = false" class="text-slate-400 hover:text-white p-1">✕</button>
+                    <button x-on:click="openNewTable = false" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">✕</button>
                 </div>
 
                 <form wire:submit="createTable" class="mt-4 space-y-4">
                     <div>
-                        <label for="new-number" class="block text-sm font-semibold text-slate-300 mb-1">Número o Código de Mesa</label>
+                        <label for="new-number" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Número o Código de Mesa</label>
                         <input
                             id="new-number"
                             type="number"
                             wire:model="newNumber"
                             min="1"
                             placeholder="Ej: 50"
-                            class="w-full bg-[#111111] border rounded-lg p-3.5 text-white text-sm placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newNumber') ? 'border-rose-500' : 'border-slate-700' }}"
+                            class="w-full bg-white dark:bg-[#111111] border rounded-lg p-3.5 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newNumber') ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700' }}"
                         />
                         @error('newNumber')
-                            <p class="text-xs text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                            <p class="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{{ $message }}</p>
                         @enderror
                     </div>
                     <div>
-                        <label for="new-zone" class="block text-sm font-semibold text-slate-300 mb-1">Zona Asignada</label>
+                        <label for="new-zone" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Zona Asignada</label>
                         <select
                             id="new-zone"
                             wire:model="newLocation"
-                            class="w-full bg-[#111111] border rounded-lg p-3.5 text-white text-sm focus:border-amber-500 focus:outline-none {{ $errors->has('newLocation') ? 'border-rose-500' : 'border-slate-700' }}"
+                            class="w-full bg-white dark:bg-[#111111] border rounded-lg p-3.5 text-slate-900 dark:text-white text-sm focus:border-amber-500 focus:outline-none {{ $errors->has('newLocation') ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700' }}"
                         >
                             @foreach(\App\Filament\Pages\TableMap::ZONE_LABELS as $zoneKey => $zoneLabel)
                                 <option value="{{ $zoneKey }}">{{ $zoneLabel }}</option>
                             @endforeach
                         </select>
                         @error('newLocation')
-                            <p class="text-xs text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                            <p class="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{{ $message }}</p>
                         @enderror
                     </div>
                     <div>
-                        <label for="new-capacity" class="block text-sm font-semibold text-slate-300 mb-1">Capacidad Comensales (Pax)</label>
+                        <label for="new-capacity" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Capacidad Comensales (Pax)</label>
                         <input
                             id="new-capacity"
                             type="number"
                             wire:model="newCapacity"
                             min="1"
                             max="20"
-                            class="w-full bg-[#111111] border rounded-lg p-3.5 text-white text-sm placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newCapacity') ? 'border-rose-500' : 'border-slate-700' }}"
+                            class="w-full bg-white dark:bg-[#111111] border rounded-lg p-3.5 text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-slate-500 focus:border-amber-500 focus:outline-none {{ $errors->has('newCapacity') ? 'border-rose-500' : 'border-slate-300 dark:border-slate-700' }}"
                         />
                         @error('newCapacity')
-                            <p class="text-xs text-rose-400 mt-1 font-medium">{{ $message }}</p>
+                            <p class="text-xs text-rose-600 dark:text-rose-400 mt-1 font-medium">{{ $message }}</p>
                         @enderror
                     </div>
                     <div class="pt-3 flex gap-2">
-                        <button type="button" x-on:click="openNewTable = false" class="flex-1 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors">Cancelar</button>
-                        <button type="submit" wire:loading.attr="disabled" class="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-colors">Guardar Mesa</button>
+                        <button type="button" x-on:click="openNewTable = false" class="flex-1 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors">Cancelar</button>
+                        <button type="submit" wire:loading.attr="disabled" class="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-black transition-colors">Guardar Mesa</button>
                     </div>
                 </form>
             </div>
@@ -453,10 +453,10 @@
         <div
             x-data="{ show: false, msg: '' }"
             x-on:table-selected.window="msg = $event.detail.message; show = true; clearTimeout(window.__moodiToast); window.__moodiToast = setTimeout(() => show = false, 2500)"
-            class="fixed bottom-5 right-5 z-[60] bg-[#111111] border border-amber-500 text-amber-400 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 transition-all duration-300"
+            class="fixed bottom-5 right-5 z-[60] bg-white dark:bg-[#111111] border border-amber-500 text-amber-600 dark:text-amber-400 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 transition-all duration-300"
             :class="show ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'"
         >
-            <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-400" />
+            <x-heroicon-o-check-circle class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             <span x-text="msg">Mesa seleccionada</span>
         </div>
 
