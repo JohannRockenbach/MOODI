@@ -1,4 +1,4 @@
-<x-filament-panels::page x-data="{ openNewTable: false }">
+<x-filament-panels::page x-data="{ openNewTable: false, openTableActionModal: false }">
     {{-- Mapa de Mesas — diseño Stitch (fondo negro puro + paleta ámbar) --}}
     <div class="space-y-6" style="font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
         @php
@@ -342,11 +342,23 @@
 
                     {{-- Acciones rápidas secundarias --}}
                     <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
+                        <button
+                            wire:click="openTableAction('move')"
+                            x-on:click="openTableActionModal = true"
+                            @disabled($selected['status'] !== 'occupied' || $selected['orders_count'] === 0)
+                            class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-center flex items-center justify-center gap-1.5 transition-colors {{ $selected['status'] === 'occupied' && $selected['orders_count'] > 0 ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white' : 'text-slate-400 dark:text-slate-500 cursor-not-allowed' }}"
+                            @if($selected['status'] !== 'occupied' || $selected['orders_count'] === 0) title="La mesa debe estar ocupada con pedidos activos" @endif
+                        >
                             <x-heroicon-o-arrows-right-left class="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                             Cambiar Mesa
                         </button>
-                        <button disabled title="Próximamente" class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed text-center flex items-center justify-center gap-1.5">
+                        <button
+                            wire:click="openTableAction('merge')"
+                            x-on:click="openTableActionModal = true"
+                            @disabled($selected['status'] !== 'occupied' || $selected['orders_count'] === 0)
+                            class="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0f0f0f] border border-slate-200 dark:border-slate-800 text-center flex items-center justify-center gap-1.5 transition-colors {{ $selected['status'] === 'occupied' && $selected['orders_count'] > 0 ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white' : 'text-slate-400 dark:text-slate-500 cursor-not-allowed' }}"
+                            @if($selected['status'] !== 'occupied' || $selected['orders_count'] === 0) title="La mesa debe estar ocupada con pedidos activos" @endif
+                        >
                             <x-heroicon-o-plus class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             Unir Mesas
                         </button>
@@ -448,6 +460,68 @@
                 </form>
             </div>
         </div>
+
+        {{-- ============ MODAL: CAMBIAR MESA / UNIR MESAS ============ --}}
+        @if($selected)
+        <div x-show="openTableActionModal" x-cloak class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-transition.opacity>
+            <div x-on:click.outside="openTableActionModal = false" class="bg-white dark:bg-[#0d0d0d] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+                    <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full {{ $tableAction === 'merge' ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                        {{ $tableAction === 'merge' ? 'Unir Mesas' : 'Cambiar Mesa' }}
+                    </h3>
+                    <button x-on:click="openTableActionModal = false" class="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1">✕</button>
+                </div>
+
+                <div class="mt-4 space-y-4">
+                    @if($tableAction === 'merge')
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Se moverán <strong class="text-slate-700 dark:text-slate-200">todos los pedidos activos</strong> de la mesa elegida a la mesa
+                            <strong class="text-amber-600 dark:text-amber-400">#{{ $selected['number'] }}</strong>, y la mesa elegida quedará libre.
+                        </p>
+                    @else
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            Los pedidos activos de la mesa <strong class="text-amber-600 dark:text-amber-400">#{{ $selected['number'] }}</strong>
+                            se moverán a una mesa <strong class="text-slate-700 dark:text-slate-200">disponible</strong>.
+                        </p>
+                    @endif
+
+                    <div>
+                        <label for="target-table" class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            {{ $tableAction === 'merge' ? 'Mesa a unir' : 'Mesa destino' }}
+                        </label>
+                        <select
+                            id="target-table"
+                            wire:model="targetTableId"
+                            class="w-full bg-white dark:bg-[#111111] border rounded-lg p-3.5 text-slate-900 dark:text-white text-sm focus:border-amber-500 focus:outline-none border-slate-300 dark:border-slate-700"
+                        >
+                            <option value="">— Elegí una mesa —</option>
+                            @forelse($this->targetTableOptions as $option)
+                                <option value="{{ $option['id'] }}">
+                                    Mesa {{ $option['number'] }} · {{ $tableAction === 'merge' ? $option['active_orders_count'].' pedidos' : $option['capacity'].' pax' }}
+                                </option>
+                            @empty
+                                <option value="" disabled>No hay mesas {{ $tableAction === 'merge' ? 'ocupadas con pedidos' : 'disponibles' }}</option>
+                            @endforelse
+                        </select>
+                    </div>
+
+                    <div class="pt-2 flex gap-2">
+                        <button type="button" x-on:click="openTableActionModal = false" class="flex-1 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors">Cancelar</button>
+                        <button
+                            type="button"
+                            wire:click="{{ $tableAction === 'merge' ? 'mergeOrdersIntoTable' : 'moveOrdersToTable' }}"
+                            x-on:click="openTableActionModal = false"
+                            @disabled(! $targetTableId)
+                            class="flex-1 py-2.5 rounded-lg {{ $targetTableId ? 'bg-amber-500 hover:bg-amber-400 text-white font-black' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' }} text-xs transition-colors"
+                        >
+                            {{ $tableAction === 'merge' ? 'Unir Mesas' : 'Confirmar Cambio' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
 
         {{-- ============ TOAST DE FEEDBACK (Alpine) ============ --}}
         <div

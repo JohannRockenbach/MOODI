@@ -411,3 +411,164 @@ it('visibleZones respeta la zona activa y omite zonas sin mesas', function () {
     $component->set('activeZone', 'all');
     expect(array_keys($component->instance()->visibleZones))->not->toContain('barra');
 });
+
+// ─────────────────────────────────────────────────────────────
+// FIX 3 — CAMBIAR MESA
+// ─────────────────────────────────────────────────────────────
+
+it('cambia de mesa: mueve pedidos activos, ocupa el destino y libera el origen', function () {
+    $mozo = makeMesaUser('Mozo');
+    $waiter = makeMesaUser('Mozo');
+
+    $origen = Table::factory()->create(['number' => 10, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $destino = Table::factory()->create(['number' => 11, 'location' => 'Salón', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+
+    $order = Order::factory()->create([
+        'table_id' => $origen->id,
+        'restaurant_id' => 1,
+        'status' => 'pending',
+        'type' => 'salon',
+        'waiter_id' => $waiter->id,
+    ]);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class);
+
+    $component
+        ->call('selectTable', $origen->id)
+        ->call('openTableAction', 'move')
+        ->assertSet('tableAction', 'move')
+        ->set('targetTableId', $destino->id)
+        ->call('moveOrdersToTable')
+        ->assertHasNoErrors();
+
+    expect($order->fresh()->table_id)->toBe($destino->id)
+        ->and($origen->fresh()->status)->toBe(Table::STATUS_AVAILABLE)
+        ->and($destino->fresh()->status)->toBe(Table::STATUS_OCCUPIED)
+        ->and($component->instance()->tableAction)->toBeNull();
+});
+
+it('solo ofrece mesas disponibles como destino de Cambiar Mesa', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $origen = Table::factory()->create(['number' => 20, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    Table::factory()->create(['number' => 21, 'location' => 'Salón', 'status' => Table::STATUS_AVAILABLE, 'restaurant_id' => 1]);
+    Table::factory()->create(['number' => 22, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    Table::factory()->create(['number' => 23, 'location' => 'Salón', 'status' => Table::STATUS_MAINTENANCE, 'restaurant_id' => 1]);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class)
+        ->call('selectTable', $origen->id)
+        ->call('openTableAction', 'move');
+
+    $options = $component->get('targetTableOptions');
+
+    expect(collect($options)->pluck('number'))->toContain('21')
+        ->and(collect($options)->pluck('number'))->not->toContain('22')
+        ->and(collect($options)->pluck('number'))->not->toContain('23');
+});
+
+// ─────────────────────────────────────────────────────────────
+// FIX 3 — UNIR MESAS
+// ─────────────────────────────────────────────────────────────
+
+it('une mesas: mueve todos los pedidos de la segunda a la seleccionada y la libera', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $primera = Table::factory()->create(['number' => 30, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $segunda = Table::factory()->create(['number' => 31, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+
+    Order::factory()->create(['table_id' => $primera->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+    $pedidoSegunda = Order::factory()->create(['table_id' => $segunda->id, 'restaurant_id' => 1, 'status' => 'processing', 'type' => 'salon']);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class);
+
+    $component
+        ->call('selectTable', $primera->id)
+        ->call('openTableAction', 'merge')
+        ->assertSet('tableAction', 'merge')
+        ->set('targetTableId', $segunda->id)
+        ->call('mergeOrdersIntoTable')
+        ->assertHasNoErrors();
+
+    expect($pedidoSegunda->fresh()->table_id)->toBe($primera->id)
+        ->and($segunda->fresh()->status)->toBe(Table::STATUS_AVAILABLE)
+        ->and($primera->fresh()->hasActiveOrders())->toBeTrue();
+});
+
+it('solo ofrece mesas ocupadas con pedidos activos para Unir Mesas', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $primera = Table::factory()->create(['number' => 40, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $conPedidos = Table::factory()->create(['number' => 41, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $sinPedidos = Table::factory()->create(['number' => 42, 'location' => 'Salón', 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+
+    Order::factory()->create(['table_id' => $primera->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+    Order::factory()->create(['table_id' => $conPedidos->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class)
+        ->call('selectTable', $primera->id)
+        ->call('openTableAction', 'merge');
+
+    $options = $component->get('targetTableOptions');
+
+    expect(collect($options)->pluck('number'))->toContain('41')
+        ->and(collect($options)->pluck('number'))->not->toContain('42');
+});
+
+// ─────────────────────────────────────────────────────────────
+// FIX 3 — SEGURIDAD
+// ─────────────────────────────────────────────────────────────
+
+it('deniega Cambiar y Unir Mesas a Cocinero (403)', function () {
+    $cocinero = makeMesaUser('Cocinero');
+
+    // Cocinero ni siquiera monta la página (canAccess exige super_admin/Mozo/Cajero,
+    // el mismo conjunto que authorizeStaffAccess): el 403 de mount bloquea también
+    // Cambiar/Unir Mesas, no hay brecha de roles entre página y acciones.
+    Livewire::actingAs($cocinero)
+        ->test(TableMap::class)
+        ->assertStatus(403);
+});
+
+// ─────────────────────────────────────────────────────────────
+// FIX 3 — EDGE CASES
+// ─────────────────────────────────────────────────────────────
+
+it('bloquea cambiar a una mesa destino ocupada o en mantenimiento', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $origen = Table::factory()->create(['number' => 60, 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $ocupada = Table::factory()->create(['number' => 61, 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $mante = Table::factory()->create(['number' => 62, 'status' => Table::STATUS_MAINTENANCE, 'restaurant_id' => 1]);
+
+    $order = Order::factory()->create(['table_id' => $origen->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+
+    $component = Livewire::actingAs($mozo)->test(TableMap::class)->call('selectTable', $origen->id);
+
+    // Destino ocupada: la acción no mueve nada (validación server-side).
+    $component->call('openTableAction', 'move')->set('targetTableId', $ocupada->id)->call('moveOrdersToTable');
+    expect($order->fresh()->table_id)->toBe($origen->id)
+        ->and($ocupada->fresh()->status)->toBe(Table::STATUS_OCCUPIED);
+
+    // Destino en mantenimiento: tampoco.
+    $component->set('targetTableId', $mante->id)->call('moveOrdersToTable');
+    expect($order->fresh()->table_id)->toBe($origen->id)
+        ->and($mante->fresh()->status)->toBe(Table::STATUS_MAINTENANCE);
+});
+
+it('no une mesas si la mesa elegida no tiene pedidos activos', function () {
+    $mozo = makeMesaUser('Mozo');
+
+    $primera = Table::factory()->create(['number' => 70, 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+    $sinPedidos = Table::factory()->create(['number' => 71, 'status' => Table::STATUS_OCCUPIED, 'restaurant_id' => 1]);
+
+    $order = Order::factory()->create(['table_id' => $primera->id, 'restaurant_id' => 1, 'status' => 'pending', 'type' => 'salon']);
+
+    Livewire::actingAs($mozo)->test(TableMap::class)
+        ->call('selectTable', $primera->id)
+        ->call('openTableAction', 'merge')
+        ->set('targetTableId', $sinPedidos->id)
+        ->call('mergeOrdersIntoTable');
+
+    expect($order->fresh()->table_id)->toBe($primera->id)
+        ->and($sinPedidos->fresh()->status)->toBe(Table::STATUS_OCCUPIED);
+});

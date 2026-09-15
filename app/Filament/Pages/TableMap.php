@@ -59,6 +59,11 @@ class TableMap extends Page
 
     public string $activeZone = 'all';
 
+    // Propiedades para acciones de mesa a distancia (Cambiar Mesa / Unir Mesas)
+    public ?string $tableAction = null; // 'move' | 'merge' | null
+
+    public ?int $targetTableId = null;
+
     // Propiedades para el modal "Nueva Mesa"
     public string $newNumber = '';
 
@@ -177,9 +182,9 @@ class TableMap extends Page
             'next_turn' => $nextTurnAt?->format('H:i'),
         ];
 
-        // Invalidar el computed que depende de tablesByLocation para evitar servir
+        // Invalidar computed que dependen de tablesByLocation para evitar servir
         // datos viejos si se re-ejecuta loadTables en el mismo ciclo de request.
-        unset($this->visibleZones);
+        unset($this->visibleZones, $this->targetTableOptions);
     }
 
     /**
@@ -302,6 +307,200 @@ class TableMap extends Page
             ->success()
             ->send();
 
+        $this->loadTables();
+    }
+
+    /**
+     * Mesas candidatas según la acción de mesa abierta en el panel:
+     * - 'move': mesas DISPONIBLES (destino posible para "Cambiar Mesa").
+     * - 'merge': mesas OCUPADAS con pedidos activos (origen a unir a la seleccionada).
+     * Siempre excluye la mesa seleccionada y filtra por restaurante 1.
+     */
+    #[Computed]
+    public function targetTableOptions(): array
+    {
+        if (! $this->tableAction || ! $this->selectedTableId) {
+            return [];
+        }
+
+        $tables = Table::where('restaurant_id', 1)
+            ->where('id', '!=', $this->selectedTableId)
+            ->withCount(['orders as active_orders_count' => fn ($query) => $query->whereIn('status', Table::ORDER_OPEN_STATUSES)])
+            ->orderBy('number')
+            ->get();
+
+        if ($this->tableAction === 'move') {
+            $tables = $tables->where('status', Table::STATUS_AVAILABLE);
+        } elseif ($this->tableAction === 'merge') {
+            // Ocupadas con pedidos activos: filtramos en PHP (evita group-by
+            // de Postgres al usar having sobre el alias de withCount).
+            $tables = $tables
+                ->where('status', Table::STATUS_OCCUPIED)
+                ->filter(fn (Table $t) => $t->active_orders_count > 0);
+        }
+
+        return array_values($tables->map(fn (Table $t) => [
+            'id' => $t->id,
+            'number' => $t->number,
+            'zone' => $this->normalizeZone($t->location),
+            'capacity' => $t->capacity,
+            'active_orders_count' => (int) $t->active_orders_count,
+        ])->all());
+    }
+
+    /**
+     * Abrir el modal de acción de mesa ("move" = Cambiar Mesa, "merge" = Unir Mesas)
+     * con su lista de mesas candidatas. Solo staff.
+     */
+    public function openTableAction(string $action): void
+    {
+        $this->authorizeStaffAccess();
+
+        if (! $this->selectedTableId || ! in_array($action, ['move', 'merge'], true)) {
+            return;
+        }
+
+        $this->tableAction = $action;
+        $this->targetTableId = null;
+        unset($this->targetTableOptions);
+    }
+
+    /**
+     * Cerrar el modal de acción de mesa y limpiar selección.
+     */
+    public function closeTableAction(): void
+    {
+        $this->tableAction = null;
+        $this->targetTableId = null;
+    }
+
+    /**
+     * CAMBIAR MESA: mover los pedidos ACTIVOS de la mesa seleccionada (origen)
+     * a una mesa destino DISPONIBLE, ocupar el destino con la máquina de estados
+     * (occupy: available → occupied) y liberar el origen con release() — que
+     * respeta reservas futuras (pasa a 'reserved' si hay una vigente).
+     * Transaccional con row-locks para evitar carreras entre mozos.
+     */
+    public function moveOrdersToTable(): void
+    {
+        $this->authorizeStaffAccess();
+
+        $origen = Table::find($this->selectedTableId);
+        $destino = Table::find($this->targetTableId);
+
+        // Validaciones: origen ocupada con pedidos activos; destino del restaurante
+        // y disponible (no ocupada ni en mantenimiento).
+        if (! $origen || $origen->restaurant_id !== 1 || $origen->status !== Table::STATUS_OCCUPIED || ! $origen->hasActiveOrders()) {
+            Notification::make()
+                ->title('No se puede cambiar la mesa')
+                ->body('La mesa seleccionada no está ocupada con pedidos activos.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if (! $destino || $destino->restaurant_id !== 1 || $destino->status !== Table::STATUS_AVAILABLE) {
+            Notification::make()
+                ->title('Mesa destino inválida')
+                ->body('La mesa destino no existe o no está disponible (ocupada o en mantenimiento).')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if ($origen->id === $destino->id) {
+            return;
+        }
+
+        DB::transaction(function () use ($origen, $destino) {
+            // Row-locks: la validación de arriba es pre-check; el lock re-valida
+            // en la misma transacción que la escritura.
+            $origenLocked = Table::whereKey($origen->id)->lockForUpdate()->first();
+            $destinoLocked = Table::whereKey($destino->id)->lockForUpdate()->first();
+
+            $origenLocked->orders()
+                ->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                ->update(['table_id' => $destinoLocked->id]);
+
+            // Destino disponible → occupy() avanza la máquina de estados sin saltos
+            // (available → occupied). Nunca pisa una mesa ocupada ni maintenance.
+            $destinoLocked->occupy();
+
+            // Origen sin pedidos activos → release() lo libera ('available'), o lo
+            // deja 'reserved' si hay una reserva futura vigente.
+            $origenLocked->release();
+        });
+
+        Notification::make()
+            ->title('Mesa Cambiada')
+            ->body("Los pedidos de la mesa #{$origen->number} se movieron a la mesa #{$destino->number}")
+            ->success()
+            ->send();
+
+        $this->closeTableAction();
+        $this->loadTables();
+    }
+
+    /**
+     * UNIR MESAS: mover TODOS los pedidos activos de la mesa elegida (origen)
+     * a la mesa SELECCIONADA (destino, que queda sumando), y liberar la mesa
+     * origen con release().
+     *
+     * Capacidad: Order no tiene dato de comensales (guest_count) en el dominio,
+     * así que no se puede verificar "capacidad suficiente" con datos reales; por
+     * eso NO bloqueamos por capacidad y avisamos en la notificación que no se
+     * pudo calcular los comensales totales.
+     */
+    public function mergeOrdersIntoTable(): void
+    {
+        $this->authorizeStaffAccess();
+
+        $destino = Table::find($this->selectedTableId); // mesa que queda (seleccionada)
+        $origen = Table::find($this->targetTableId);    // mesa que se une (se libera)
+
+        if (! $destino || $destino->restaurant_id !== 1 || $destino->status !== Table::STATUS_OCCUPIED || ! $destino->hasActiveOrders()) {
+            Notification::make()
+                ->title('No se puede unir')
+                ->body('La mesa seleccionada no está ocupada con pedidos activos.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if (! $origen || $origen->restaurant_id !== 1 || $origen->id === $destino->id || $origen->status !== Table::STATUS_OCCUPIED || ! $origen->hasActiveOrders()) {
+            Notification::make()
+                ->title('Mesa a unir inválida')
+                ->body('La mesa elegida no existe, es la misma mesa, o no tiene pedidos activos.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $moved = 0;
+
+        DB::transaction(function () use ($destino, $origen, &$moved) {
+            $destinoLocked = Table::whereKey($destino->id)->lockForUpdate()->first();
+            $origenLocked = Table::whereKey($origen->id)->lockForUpdate()->first();
+
+            $moved = $origenLocked->orders()
+                ->whereIn('status', Table::ORDER_OPEN_STATUSES)
+                ->update(['table_id' => $destinoLocked->id]);
+
+            // Origen sin pedidos activos → release() (respeta reservas futuras).
+            $origenLocked->release();
+        });
+
+        Notification::make()
+            ->title('Mesas Unidas')
+            ->body("Se movieron {$moved} pedidos de la mesa #{$origen->number} a la mesa #{$destino->number}. Verificá que la mesa quede con capacidad suficiente (no se pudo calcular comensales).")
+            ->success()
+            ->send();
+
+        $this->closeTableAction();
         $this->loadTables();
     }
 
