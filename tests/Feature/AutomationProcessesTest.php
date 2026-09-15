@@ -189,6 +189,10 @@ describe('loyalty:check-promo', function () {
             'restaurant_id' => $restaurant->id,
         ]);
 
+        // El observer de Cliente ya disparó la notificación al crear (birthday = hoy).
+        // Limpiamos para aislar el chequeo diario del comando.
+        DB::table('notifications')->delete();
+
         $this->artisan('loyalty:check-promo')->assertSuccessful();
 
         $notifications = automationNotifications();
@@ -213,6 +217,9 @@ describe('loyalty:check-promo', function () {
             'birthday' => now()->subYearsNoOverflow(30)->format('Y-m-d'),
             'restaurant_id' => $restaurant->id,
         ]);
+
+        // Aislar el comando: descartar la notificación del observer (mismo cliente).
+        DB::table('notifications')->delete();
 
         $this->artisan('loyalty:check-promo')->assertSuccessful();
 
@@ -553,5 +560,118 @@ describe('stock:check-expiry', function () {
 
         expect($bodies)->toContain('Queso Cheddar')
             ->and($bodies)->not->toContain('Exceso de stock');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Disparo inmediato por cumpleaños al crear Cliente (ClienteObserver)
+|--------------------------------------------------------------------------
+*/
+
+describe('loyalty promo on cliente creation', function () {
+    test('crear un cliente con cumpleaños hoy notifica al instante a super_admin (happy path)', function () {
+        $restaurant = automationRestaurant();
+        $admin = automationAdmin($restaurant);
+
+        $client = Cliente::query()->create([
+            'name' => 'Cumpleaños Hoy',
+            'email' => 'hoy+'.bin2hex(random_bytes(4)).'@test.local',
+            'phone' => '111111111',
+            'birthday' => now()->format('Y-m-d'),
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        $notifications = automationNotifications();
+
+        expect($notifications)->toHaveCount(1)
+            ->and($notifications->first()->notifiable_id)->toBe($admin->id);
+
+        $data = json_decode($notifications->first()->data, true);
+
+        expect($data['title'])->toContain('Feliz Cumpleaños, '.$client->name);
+    });
+
+    test('solo notifica a usuarios con rol super_admin (autorización)', function () {
+        $restaurant = automationRestaurant();
+        $admin = automationAdmin($restaurant);
+        $staff = automationStaff($restaurant);
+
+        Cliente::query()->create([
+            'name' => 'Cumpleaños Autorización',
+            'email' => 'auth+'.bin2hex(random_bytes(4)).'@test.local',
+            'phone' => '111111111',
+            'birthday' => now()->format('Y-m-d'),
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        $notifications = automationNotifications();
+
+        expect($notifications)->toHaveCount(1)
+            ->and($notifications->first()->notifiable_id)->toBe($admin->id)
+            ->and($notifications->where('notifiable_id', $staff->id))->toBeEmpty();
+    });
+
+    test('cliente con cumpleaños distinto a hoy no notifica (edge)', function () {
+        $restaurant = automationRestaurant();
+        automationAdmin($restaurant);
+
+        Cliente::query()->create([
+            'name' => 'Cumpleaños Otro Día',
+            'email' => 'otro+'.bin2hex(random_bytes(4)).'@test.local',
+            'phone' => '111111111',
+            // Mismo día del mes pero tres meses atrás: nunca coincide con hoy.
+            'birthday' => now()->subMonthsNoOverflow(3)->format('Y-m-d'),
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        expect(automationNotifications())->toBeEmpty();
+    });
+
+    test('cliente sin birthday no rompe ni notifica (edge)', function () {
+        $restaurant = automationRestaurant();
+        automationAdmin($restaurant);
+
+        Cliente::query()->create([
+            'name' => 'Sin Cumpleaños',
+            'email' => 'sinbday+'.bin2hex(random_bytes(4)).'@test.local',
+            'phone' => '111111111',
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        expect(automationNotifications())->toBeEmpty();
+    });
+
+    test('sin admins super_admin no rompe (edge)', function () {
+        $restaurant = automationRestaurant();
+
+        Cliente::query()->create([
+            'name' => 'Sin Admin',
+            'email' => 'sinadmin+'.bin2hex(random_bytes(4)).'@test.local',
+            'phone' => '111111111',
+            'birthday' => now()->format('Y-m-d'),
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        expect(automationNotifications())->toBeEmpty();
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Scheduler: registración única (fix de registros duplicados)
+|--------------------------------------------------------------------------
+*/
+
+describe('scheduler registration', function () {
+    test('loyalty:check-promo está registrado UNA sola vez y a las 08:30', function () {
+        // Inspección directa del contenedor: más estable que schedule:list (que
+        // depende del formateo de salida y puede variar entre versiones de Laravel).
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
+
+        $loyaltyEvents = $events->filter(fn ($event) => str_contains($event->command, 'loyalty:check-promo'));
+
+        expect($loyaltyEvents)->toHaveCount(1)
+            ->and($loyaltyEvents->first()->expression)->toBe('30 8 * * *');
     });
 });
