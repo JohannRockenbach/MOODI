@@ -44,4 +44,17 @@ class Discount extends Model
         return $this->belongsToMany(Sale::class)
                     ->withPivot('amount_discounted');
     }
+
+    protected static function booted(): void
+    {
+        // Un descuento ya asociado a ventas NO se puede eliminar: rompería
+        // el histórico contable (sale_discount.amount_discounted).
+        static::deleting(function (Discount $discount): void {
+            if ($discount->sales()->exists()) {
+                throw new \DomainException(
+                    'No se puede eliminar el descuento "'.$discount->name.'" porque está asociado a ventas registradas. Desactívalo en su lugar.'
+                );
+            }
+        });
+    }
 }

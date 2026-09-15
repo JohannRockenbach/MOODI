@@ -37,10 +37,18 @@ class TableMap extends Page
     public float $discountAmount = 0;
 
     // Visibilidad según rol
+    public static function canAccess(): bool
+    {
+        // Mapa de mesas es operativo: super_admin, Mozo y Cajero.
+        $user = auth()->user();
+
+        return $user !== null && $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
         // Visible para todos los usuarios autenticados en el panel admin
-        // El acceso ya está protegido por el middleware de Filament
+        // El acceso ya está protegido por canAccess() y el middleware de Filament
         return true;
     }
 
@@ -107,9 +115,21 @@ class TableMap extends Page
         $this->dispatch('close-modal', id: 'table-details');
     }
 
+    // Verificación de acceso para acciones operativas del mapa (staff).
+    // La página ya exige rol vía canAccess(); esto protege las acciones por método.
+    private function authorizeStaffAccess(): void
+    {
+        abort_unless(
+            auth()->user()?->hasAnyRole(['super_admin', 'Mozo', 'Cajero']),
+            403
+        );
+    }
+
     // Crear nuevo pedido (SIN cambiar estado aquí)
     public function createOrderForTable(): void
     {
+        $this->authorizeStaffAccess();
+
         if (!$this->selectedTableId) {
             return;
         }
@@ -123,6 +143,8 @@ class TableMap extends Page
     // Ir a editar un pedido existente
     public function editOrder(int $orderId): void
     {
+        $this->authorizeStaffAccess();
+
         $this->redirect(
             \App\Filament\Resources\OrderResource::getUrl('edit', [
                 'record' => $orderId,
@@ -134,6 +156,8 @@ class TableMap extends Page
     // Liberar una mesa
     public function freeTable(int $tableId): void
     {
+        $this->authorizeStaffAccess();
+
         $table = Table::with('orders')->find($tableId);
         
         if (!$table) {
@@ -154,9 +178,18 @@ class TableMap extends Page
             return;
         }
 
-        // Liberar la mesa
-        $table->update(['status' => 'available']);
-        
+        // Liberar la mesa con la máquina de estados centralizada.
+        // - 'occupied': release() la pasa a 'available' (o 'reserved' si hay reservas
+        //   futuras vigentes), validando que no queden pedidos activos.
+        // - 'reserved': se libera manualmente solo si no hay reservas futuras vigentes;
+        //   si las hay, se mantiene reservada (un admin debe gestionar la reserva).
+        if ($table->status === Table::STATUS_OCCUPIED) {
+            $table->release();
+        } elseif ($table->status === Table::STATUS_RESERVED && ! $table->hasFutureActiveReservations()) {
+            $table->update(['status' => Table::STATUS_AVAILABLE]);
+        }
+        // 'available' / 'maintenance': no se tocan (maintenance fuera de servicio).
+
         Notification::make()
             ->title('Mesa Liberada')
             ->body("Mesa #{$table->number} ahora está disponible")
@@ -205,7 +238,9 @@ class TableMap extends Page
             return;
         }
 
-        $discounts = \App\Models\Discount::whereIn('id', $this->selectedDiscounts)->get();
+        $discounts = \App\Models\Discount::whereIn('id', $this->selectedDiscounts)
+            ->where('is_active', true)
+            ->get();
         $totalDiscount = 0;
 
         foreach ($discounts as $discount) {
@@ -222,6 +257,9 @@ class TableMap extends Page
     // Procesar el cobro de la mesa
     public function cobrarMesa(): void
     {
+        // Solo Cajero/super_admin pueden registrar ventas (SalePolicy::create).
+        abort_unless(auth()->user()?->can('create', \App\Models\Sale::class), 403);
+
         if (!$this->selectedTableId) {
             return;
         }
@@ -284,10 +322,12 @@ class TableMap extends Page
                         'sale_date' => now(),
                     ]);
 
-                    // Asociar descuentos proporcionalmente
+                    // Asociar descuentos proporcionalmente (solo si siguen activos)
                     if (!empty($this->selectedDiscounts)) {
                         foreach ($this->selectedDiscounts as $discountId) {
-                            $discount = \App\Models\Discount::find($discountId);
+                            $discount = \App\Models\Discount::where('id', $discountId)
+                                ->where('is_active', true)
+                                ->first();
                             if ($discount) {
                                 $discountValue = $discount->type === 'percentage'
                                     ? $orderTotal * ($discount->value / 100)
@@ -299,10 +339,18 @@ class TableMap extends Page
                             }
                         }
                     }
+
+                    // 🔒 El pedido cobrado deja de estar activo: pasa a 'completed'.
+                    // Sin esto, el mapa seguiría mostrando pedidos activos en la mesa
+                    // y la mesa no se liberaría correctamente tras el cobro.
+                    $order->update(['status' => 'completed']);
                 }
 
-                // Liberar la mesa
-                $table->update(['status' => 'available']);
+                // Liberar la mesa con la máquina de estados centralizada.
+                // release() vuelve 'occupied' -> 'available' (o 'reserved' si hay
+                // reservas futuras vigentes). Si la mesa no partió de 'occupied'
+                // (estado legacy) no se toca nada.
+                $table->release();
             });
 
             Notification::make()
@@ -313,7 +361,7 @@ class TableMap extends Page
 
             // Refrescar y cerrar modales
             $this->loadTables();
-            $this->dispatch('close-modal', id: 'cobrar-mesa-' . $this->selectedTableId);
+            $this->dispatch('close-modal', id: 'cobrar-mesa');
             $this->dispatch('close-modal', id: 'table-details');
             
             // Limpiar variables

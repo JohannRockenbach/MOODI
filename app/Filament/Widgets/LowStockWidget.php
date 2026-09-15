@@ -33,15 +33,16 @@ class LowStockWidget extends Widget
         // Obtener ingredientes con stock bajo
         $ingredients = Ingredient::query()
             ->with(['restaurant', 'batches'])
+            ->where('restaurant_id', 1)
             ->get()
             ->filter(function ($ingredient) {
-                // Calcular stock total de lotes
-                $totalStock = $ingredient->batches()->sum('quantity');
+                // Stock disponible: lotes NO vencidos (colección ya cargada, sin N+1)
+                $totalStock = $ingredient->availableStock();
                 // Filtrar solo los que tienen stock bajo
                 return $totalStock <= $ingredient->min_stock;
             })
             ->map(function ($ingredient) {
-                $totalStock = $ingredient->batches()->sum('quantity');
+                $totalStock = $ingredient->availableStock();
                 return [
                     'id' => 'i_' . $ingredient->id,
                     'name' => $ingredient->name,
@@ -59,6 +60,7 @@ class LowStockWidget extends Widget
         $products = Product::query()
             ->whereNull('recipe_id') // Solo productos de venta directa
             ->whereColumn('stock', '<=', 'min_stock')
+            ->where('restaurant_id', 1)
             ->with('restaurant')
             ->get()
             ->map(function ($product) {

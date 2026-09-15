@@ -433,4 +433,3 @@
         </x-slot>
     </x-filament::modal>
 </x-filament-panels::page>
-```

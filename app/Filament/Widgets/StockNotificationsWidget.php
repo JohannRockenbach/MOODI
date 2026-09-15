@@ -21,15 +21,16 @@ class StockNotificationsWidget extends Widget
         // Obtener todos los ingredientes con sus lotes
         $ingredients = Ingredient::query()
             ->with(['restaurant', 'batches'])
+            ->where('restaurant_id', 1)
             ->get()
             ->filter(function ($ingredient) {
-                // Calcular stock total desde lotes
-                $totalStock = $ingredient->batches->sum('quantity');
-                // Filtrar solo los que tienen stock crítico o bajo
-                return $totalStock <= 0 || ($totalStock <= $ingredient->min_stock && $totalStock <= $ingredient->min_stock * 0.5);
+                // Stock disponible: lotes NO vencidos (colección ya cargada, sin N+1)
+                $totalStock = $ingredient->availableStock();
+                // Filtrar solo los que tienen stock crítico (0) o bajo (<= 50% min_stock)
+                return $totalStock <= 0 || $totalStock <= $ingredient->min_stock * 0.5;
             })
             ->map(function ($ingredient) {
-                $totalStock = $ingredient->batches->sum('quantity');
+                $totalStock = $ingredient->availableStock();
                 return [
                     'name' => $ingredient->name,
                     'current_stock' => $totalStock,
@@ -42,12 +43,10 @@ class StockNotificationsWidget extends Widget
 
         $products = Product::query()
             ->whereNull('recipe_id')
+            ->where('restaurant_id', 1)
             ->where(function ($query) {
                 $query->where('stock', '<=', 0)
-                    ->orWhere(function ($q) {
-                        $q->whereColumn('stock', '<=', 'min_stock')
-                            ->whereRaw('stock <= min_stock * 0.5');
-                    });
+                    ->orWhereRaw('stock <= min_stock * 0.5');
             })
             ->with('restaurant')
             ->get()

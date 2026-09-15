@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -57,6 +58,41 @@ class Category extends Model
             // Prevent deleting a category that still has products or subcategories
             if ($model->products()->exists() || $model->children()->exists()) {
                 throw new \Exception('No se puede eliminar la categoría porque tiene productos o subcategorías asociadas. Reasigne o elimine primero.');
+            }
+        });
+
+        // Prevenir ciclos en la jerarquía: una categoría no puede ser hija
+        // (directa o indirectamente) de sí misma.
+        static::saving(function (self $model) {
+            if (! $model->parent_id) {
+                return;
+            }
+
+            $ancestorId = (int) $model->parent_id;
+
+            // En edición, la propia categoría no puede ser su antecesora.
+            if ($model->exists && (int) $model->id === $ancestorId) {
+                throw new \Exception('Una categoría no puede ser padre de sí misma.');
+            }
+
+            // Subir por la cadena de padres; si encontramos la categoría actual
+            // (o un ciclo), rechazar.
+            $visited = [];
+            $currentParentId = $ancestorId;
+
+            while ($currentParentId) {
+                if (in_array($currentParentId, $visited, true)) {
+                    throw new \Exception('La jerarquía de categorías no puede tener ciclos.');
+                }
+
+                $visited[] = $currentParentId;
+
+                // Si el padre es la propia categoría (en edición) → ciclo.
+                if ($model->exists && (int) $model->id === $currentParentId) {
+                    throw new \Exception('La jerarquía de categorías no puede tener ciclos (una categoría no puede ser descendiente de sí misma).');
+                }
+
+                $currentParentId = self::query()->whereKey($currentParentId)->value('parent_id');
             }
         });
     }

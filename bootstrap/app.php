@@ -10,6 +10,7 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // El schedule vive ÚNICAMENTE en routes/console.php (evita doble ejecución).
     ->withMiddleware(function (Middleware $middleware): void {
         //
         $middleware->trustProxies(at: '*');

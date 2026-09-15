@@ -2,19 +2,19 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Http\Middleware\Authenticate;
+use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\MarketingSettings;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
-use Filament\Navigation\NavigationGroup;
-use App\Filament\Pages\Dashboard;
-use App\Filament\Pages\TableMap;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -34,14 +34,13 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
-            ->topNavigation()
             ->defaultAvatarProvider(\Filament\AvatarProviders\UiAvatarsProvider::class)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Pages\Dashboard::class,
                 \App\Filament\Pages\MarketingSettings::class,
             ])
             ->navigationGroups([
@@ -51,6 +50,8 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Inventario'),
                 NavigationGroup::make('Clientes')
                     ->label('Clientes'),
+                NavigationGroup::make('Reportes')
+                    ->label('Reportes'),
                 NavigationGroup::make('Configuración')
                     ->label('Configuración'),
             ])
@@ -59,7 +60,7 @@ class AdminPanelProvider extends PanelProvider
                 // Widgets del sistema
                 // Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class,
-                
+
                 // Widgets personalizados del Dashboard
                 \App\Filament\Widgets\WeatherOverview::class, // Estado del Clima (2 tarjetas)
                 \App\Filament\Widgets\StockNotificationsWidget::class, // Notificaciones de stock
@@ -80,6 +81,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 \App\Http\Middleware\RedirectMozoToTableMap::class,
+                \App\Http\Middleware\RedirectCocineroToKitchen::class,
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),
@@ -87,6 +89,6 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
-            
+
     }
 }
