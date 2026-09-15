@@ -460,23 +460,23 @@
             <span x-text="msg">Mesa seleccionada</span>
         </div>
 
-        {{-- ============ MODAL DE COBRO (reusado, sin rediseñar) ============ --}}
+        {{-- ============ MODAL DE COBRO (tema del sistema) ============ --}}
         <x-filament::modal id="cobrar-mesa" width="2xl">
             <x-slot name="heading">
                 <div class="flex items-center gap-3">
-                    <div class="bg-green-500 rounded-xl p-3">
+                    <div class="bg-amber-500 rounded-xl p-3">
                         <x-heroicon-o-currency-dollar class="w-8 h-8 text-white" />
                     </div>
-                    <h3 class="text-2xl font-black text-gray-900 dark:text-white">Cobrar Mesa</h3>
+                    <h3 class="text-2xl font-black text-slate-900 dark:text-white">Cobrar Mesa</h3>
                 </div>
             </x-slot>
 
             <div class="space-y-6">
                 {{-- Total sin descuento --}}
-                <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 border-4 border-yellow-400">
+                <div class="bg-slate-50 dark:bg-[#0f0f0f] rounded-lg p-6 border border-slate-200 dark:border-slate-800">
                     <div class="flex justify-between items-center">
-                        <span class="text-lg font-bold text-gray-700 dark:text-gray-300">Subtotal</span>
-                        <span class="text-3xl font-black text-gray-900 dark:text-white">
+                        <span class="text-lg font-bold text-slate-700 dark:text-slate-300">Subtotal</span>
+                        <span class="text-3xl font-black text-slate-900 dark:text-white">
                             ${{ number_format($totalAmount, 0, ',', '.') }}
                         </span>
                     </div>
@@ -484,28 +484,28 @@
 
                 {{-- Método de Pago --}}
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
+                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
                         💳 Método de Pago
                     </label>
                     <div class="grid grid-cols-3 gap-3">
                         <button
                             wire:click="$set('paymentMethod', 'cash')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border-4 font-bold transition-all
-                                {{ $paymentMethod === 'cash' ? 'bg-green-500 border-black text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-green-500' }}">
+                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
+                                {{ $paymentMethod === 'cash' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
                             <x-heroicon-o-banknotes class="w-8 h-8 mb-2" />
                             Efectivo
                         </button>
                         <button
                             wire:click="$set('paymentMethod', 'card')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border-4 font-bold transition-all
-                                {{ $paymentMethod === 'card' ? 'bg-green-500 border-black text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-green-500' }}">
+                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
+                                {{ $paymentMethod === 'card' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
                             <x-heroicon-o-credit-card class="w-8 h-8 mb-2" />
                             Tarjeta
                         </button>
                         <button
                             wire:click="$set('paymentMethod', 'transfer')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border-4 font-bold transition-all
-                                {{ $paymentMethod === 'transfer' ? 'bg-green-500 border-black text-white' : 'bg-white border-gray-300 text-gray-700 hover:border-green-500' }}">
+                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
+                                {{ $paymentMethod === 'transfer' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
                             <x-heroicon-o-arrows-right-left class="w-8 h-8 mb-2" />
                             Transferencia
                         </button>
@@ -514,21 +514,21 @@
 
                 {{-- Descuentos --}}
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">
+                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
                         🏷️ Aplicar Descuentos (Opcional)
                     </label>
                     @if($discounts->count() > 0)
-                        <div class="space-y-2 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 p-3">
+                        <div class="space-y-2 max-h-48 overflow-y-auto bg-white dark:bg-[#0f0f0f] rounded-lg border border-slate-200 dark:border-slate-800 p-3">
                             @foreach($discounts as $discount)
-                                <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-2 border-transparent hover:border-yellow-400 transition-all">
+                                <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border border-transparent hover:border-amber-500/50 transition-all">
                                     <input
                                         type="checkbox"
                                         wire:model.live="selectedDiscounts"
                                         value="{{ $discount->id }}"
-                                        class="w-5 h-5 text-yellow-400 border-gray-300 rounded focus:ring-yellow-400">
+                                        class="w-5 h-5 text-amber-500 border-slate-300 dark:border-slate-600 dark:bg-slate-900 rounded focus:ring-amber-500">
                                     <div class="flex-1">
-                                        <div class="font-bold text-gray-900 dark:text-white">{{ $discount->name }}</div>
-                                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                                        <div class="font-bold text-slate-900 dark:text-white">{{ $discount->name }}</div>
+                                        <div class="text-sm text-slate-500 dark:text-slate-400">
                                             {{ $discount->type === 'percentage' ? $discount->value . '%' : '$' . number_format($discount->value, 0, ',', '.') }} de descuento
                                         </div>
                                     </div>
@@ -536,7 +536,7 @@
                             @endforeach
                         </div>
                     @else
-                        <div class="text-center py-4 text-gray-500 italic">
+                        <div class="text-center py-4 text-slate-500 italic">
                             No hay descuentos disponibles
                         </div>
                     @endif
@@ -544,10 +544,10 @@
 
                 {{-- Descuento aplicado --}}
                 @if($discountAmount > 0)
-                    <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border-2 border-yellow-400">
+                    <div class="bg-amber-50 dark:bg-amber-500/10 rounded-lg p-4 border border-amber-500/40">
                         <div class="flex justify-between items-center">
-                            <span class="text-lg font-bold text-yellow-800 dark:text-yellow-300">Descuento Total</span>
-                            <span class="text-2xl font-black text-yellow-600 dark:text-yellow-400">
+                            <span class="text-lg font-bold text-amber-800 dark:text-amber-300">Descuento Total</span>
+                            <span class="text-2xl font-black text-amber-600 dark:text-amber-400">
                                 -${{ number_format($discountAmount, 0, ',', '.') }}
                             </span>
                         </div>
@@ -555,13 +555,13 @@
                 @endif
 
                 {{-- Total final --}}
-                <div class="bg-black rounded-lg p-6 border-4 border-yellow-400">
+                <div class="bg-[#0d0d0d] rounded-lg p-6 border border-amber-500/60">
                     <div class="flex justify-between items-center">
                         <div>
-                            <p class="text-lg font-bold text-yellow-400 mb-1">TOTAL A COBRAR</p>
-                            <p class="text-sm text-yellow-400/75">{{ ucfirst($paymentMethod === 'cash' ? 'Efectivo' : ($paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia')) }}</p>
+                            <p class="text-lg font-bold text-amber-400 mb-1">TOTAL A COBRAR</p>
+                            <p class="text-sm text-amber-400/75">{{ ucfirst($paymentMethod === 'cash' ? 'Efectivo' : ($paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia')) }}</p>
                         </div>
-                        <span class="text-5xl font-black text-yellow-400">
+                        <span class="text-5xl font-black text-amber-400">
                             ${{ number_format(max(0, $totalAmount - $discountAmount), 0, ',', '.') }}
                         </span>
                     </div>
@@ -572,13 +572,13 @@
                 <div class="flex gap-3 w-full">
                     <button
                         x-on:click="$dispatch('close-modal', { id: 'cobrar-mesa' })"
-                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-black py-3 px-6 rounded-lg text-lg">
+                        class="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black py-3 px-6 rounded-lg text-lg">
                         Cancelar
                     </button>
                     <button
                         wire:click="cobrarMesa"
                         wire:loading.attr="disabled"
-                        class="flex-1 bg-green-500 hover:bg-green-600 text-white font-black py-3 px-6 rounded-lg border-4 border-yellow-400 text-lg flex items-center justify-center gap-2">
+                        class="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-black py-3 px-6 rounded-lg border border-amber-600 shadow-lg shadow-amber-500/20 text-lg flex items-center justify-center gap-2">
                         <x-heroicon-o-check-circle class="w-6 h-6" />
                         <span wire:loading.remove>Confirmar Cobro</span>
                         <span wire:loading>Procesando...</span>
