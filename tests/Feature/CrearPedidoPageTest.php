@@ -182,6 +182,100 @@ it('no agrega un producto con is_available=false', function () {
     expect($component->instance()->items)->toBe([]);
 });
 
+// ─────────────────────────────────────────────────────────────
+// CATÁLOGO EN SECCIONES: COMIDA / BEBIDAS
+// ─────────────────────────────────────────────────────────────
+
+it('muestra solo comida en la pestaña Comida y bebidas en Bebidas', function () {
+    $mozo = makePosUser('Mozo');
+    $burger = makePosProduct('Burger Clásica'); // Hamburguesas → Comida
+    $papas = makePosProduct('Papas con Cheddar', [
+        'category_id' => Category::firstOrCreate(['name' => 'Papas Fritas'])->id,
+    ]);
+    $coca = makePosProduct('Coca-Cola 350ml', [
+        'price' => 500.00,
+        'stock' => 50,
+        'category_id' => Category::firstOrCreate(['name' => 'Bebidas'])->id,
+    ]);
+
+    // Comida: hamburguesas y papas, NUNCA bebidas.
+    $food = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('setSection', CrearPedido::SECTION_FOOD)
+        ->assertSet('activeSection', CrearPedido::SECTION_FOOD);
+
+    expect($food->instance()->catalogProducts->pluck('id')->all())
+        ->toContain($burger->id)
+        ->toContain($papas->id)
+        ->not->toContain($coca->id);
+
+    // Bebidas: solo bebidas.
+    $drinks = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('setSection', CrearPedido::SECTION_DRINKS)
+        ->assertSet('activeSection', CrearPedido::SECTION_DRINKS);
+
+    expect($drinks->instance()->catalogProducts->pluck('id')->all())
+        ->toContain($coca->id)
+        ->not->toContain($burger->id)
+        ->not->toContain($papas->id);
+
+    // Todo: el catálogo completo.
+    $all = Livewire::actingAs($mozo)->test(CrearPedido::class);
+
+    expect(count($all->instance()->catalogProducts))->toBe(3);
+});
+
+it('mapea categorías con cerveza en el nombre como Bebidas', function () {
+    $mozo = makePosUser('Mozo');
+    $beer = makePosProduct('IPA Artesanal 500ml', [
+        'category_id' => Category::firstOrCreate(['name' => 'Cervezas'])->id,
+    ]);
+
+    $drinks = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('setSection', CrearPedido::SECTION_DRINKS);
+
+    expect($drinks->instance()->catalogProducts->pluck('id')->all())
+        ->toContain($beer->id);
+});
+
+// ─────────────────────────────────────────────────────────────
+// GRILLA TÁCTIL DE MESAS
+// ─────────────────────────────────────────────────────────────
+
+it('selecciona una mesa desde la grilla táctil del modal', function () {
+    $mozo = makePosUser('Mozo');
+    $table = makePosTable(['number' => 12, 'location' => 'Terraza']);
+
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('openTableModal')
+        ->assertSet('showTableModal', true);
+
+    // En el modal la tarjeta setea newTableId y "Aplicar Mesa" confirma.
+    $component->set('newTableId', $table->id)
+        ->call('confirmTableChange')
+        ->assertSet('showTableModal', false)
+        ->assertSet('selectedTableId', $table->id);
+
+    expect($component->instance()->selectedTable->number)->toBe('12');
+});
+
+// ─────────────────────────────────────────────────────────────
+// EDGE CASES
+// ─────────────────────────────────────────────────────────────
+
+it('muestra la grilla vacía con aviso cuando no hay mesas', function () {
+    $mozo = makePosUser('Mozo');
+
+    Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('openTableModal')
+        ->assertSet('showTableModal', true)
+        ->assertSee('No hay mesas cargadas');
+});
+
 it('no agrega un producto sin stock real (realStock <= 0)', function () {
     $mozo = makePosUser('Mozo');
     makePosProduct('Agotado', ['stock' => 0]);
@@ -259,15 +353,19 @@ it('bloquea cambiar de modalidad y de mesa cuando viene del mapa', function () {
         ->call('openTableModal')
         ->assertSet('showTableModal', false); // sin modal de cambio
 });
-it('renderiza el selector de mesas al entrar sin mesa precargada', function () {
+it('renderiza la grilla de mesas al entrar sin mesa precargada', function () {
     $mozo = makePosUser('Mozo');
     $table = makePosTable(['number' => 36, 'location' => 'Terraza']);
 
-    // Sin ?table_id → el TPV muestra el <select> de mesas; debe renderizar
-    // sin error (regresión: getTablesProperty() devuelve arrays, no modelos).
+    // Sin ?table_id → el TPV muestra el botón "Elegí una mesa" (grilla táctil);
+    // ya no hay <select>/<option>. La grilla se ve al abrir el modal.
     Livewire::actingAs($mozo)
         ->test(CrearPedido::class)
         ->assertSet('selectedTableId', null)
-        ->assertSee('Mesa #36')
-        ->assertSee('Terraza');
+        ->assertSee('Elegí una mesa')
+        ->assertDontSee('<option')
+        ->call('openTableModal')
+        ->assertSet('showTableModal', true)
+        ->assertSee('Terraza')
+        ->assertSee('36'); // número GRANDE de la tarjeta en la grilla
 });

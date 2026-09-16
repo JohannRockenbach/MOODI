@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Category;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Table;
@@ -41,6 +40,11 @@ class CrearPedido extends Page
     public const TYPE_SALON = 'salon';
     public const TYPE_TAKEAWAY = 'para_llevar';
 
+    // Secciones del catálogo: el dueño distingue SOLO Comida y Bebidas.
+    public const SECTION_TODO = 'todo';
+    public const SECTION_FOOD = 'comida';
+    public const SECTION_DRINKS = 'bebidas';
+
     // Mesa seleccionada: si llega por ?table_id= (desde el Mapa de Mesas)
     // queda bloqueada y NO se puede cambiar ni pasar a Para Llevar.
     public ?int $selectedTableId = null;
@@ -52,7 +56,7 @@ class CrearPedido extends Page
     // Filtros del catálogo
     public string $search = '';
 
-    public ?int $activeCategory = null; // null = Todos
+    public string $activeSection = self::SECTION_TODO; // 'todo' | 'comida' | 'bebidas'
 
     public bool $promoOnly = false; // Solo productos temporales (ofertas anti-desperdicio)
 
@@ -105,36 +109,28 @@ class CrearPedido extends Page
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Categorías reales con productos disponibles (para el carrusel),
-     * asignando emoji por convención de nombre. No existe campo emoji.
+     * Contadores de productos disponibles por sección (Comida | Bebidas | Todo).
+     * Reemplaza al carrusel de categorías: el dueño distingue SOLO dos grupos.
      */
-    public function getCategoriesProperty(): Collection
+    public function getSectionCountsProperty(): array
     {
-        $counts = Product::where('restaurant_id', 1)
-            ->where('is_available', true)
-            ->selectRaw('category_id, COUNT(*) as total')
-            ->groupBy('category_id')
-            ->pluck('total', 'category_id');
+        $available = Product::where('restaurant_id', 1)->where('is_available', true);
 
-        if ($counts->isEmpty()) {
-            return collect();
-        }
-
-        return Category::whereIn('id', $counts->keys())
-            ->orderBy('display_order')
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Category $category) => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'emoji' => self::categoryEmoji($category->name),
-                'count' => (int) ($counts[$category->id] ?? 0),
-            ])
-            ->values();
+        return [
+            self::SECTION_TODO => (clone $available)->count(),
+            self::SECTION_FOOD => (clone $available)->whereDoesntHave('category', fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('name', 'ilike', '%bebida%')
+                ->orWhere('name', 'ilike', '%cerveza%')))->count(),
+            self::SECTION_DRINKS => (clone $available)->whereHas('category', fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('name', 'ilike', '%bebida%')
+                ->orWhere('name', 'ilike', '%cerveza%')))->count(),
+        ];
     }
 
     /**
-     * Productos disponibles del restaurante 1 según filtros activos.
+     * Productos disponibles del restaurante 1 según sección y filtros activos.
+     * El mapeo se hace por nombre de categoría normalizado: contiene
+     * 'bebida'/'cerveza' → Bebidas; el resto → Comida.
      */
     public function getCatalogProductsProperty(): Collection
     {
@@ -142,12 +138,20 @@ class CrearPedido extends Page
             ->where('restaurant_id', 1)
             ->where('is_available', true);
 
-        if ($this->promoOnly) {
-            $query->where('is_temporal', true);
+        if ($this->activeSection !== self::SECTION_TODO) {
+            $isDrink = fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('name', 'ilike', '%bebida%')
+                ->orWhere('name', 'ilike', '%cerveza%'));
+
+            if ($this->activeSection === self::SECTION_DRINKS) {
+                $query->whereHas('category', $isDrink);
+            } else {
+                $query->whereDoesntHave('category', $isDrink);
+            }
         }
 
-        if ($this->activeCategory) {
-            $query->where('category_id', $this->activeCategory);
+        if ($this->promoOnly) {
+            $query->where('is_temporal', true);
         }
 
         $term = trim($this->search);
@@ -238,9 +242,13 @@ class CrearPedido extends Page
     // FILTROS
     // ─────────────────────────────────────────────────────────────
 
-    public function setCategory(?int $categoryId): void
+    public function setSection(string $section): void
     {
-        $this->activeCategory = $categoryId;
+        if (! in_array($section, [self::SECTION_TODO, self::SECTION_FOOD, self::SECTION_DRINKS], true)) {
+            return;
+        }
+
+        $this->activeSection = $section;
     }
 
     public function togglePromo(): void

@@ -5,14 +5,14 @@
 
             {{-- ══════════════ HEADER POS ══════════════ --}}
             <header class="sticky top-0 z-30 border-b border-slate-200 dark:border-[#272a31] bg-white/90 backdrop-blur-md dark:bg-[#1c2026]/90">
-                <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+                <div class="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
                     {{-- Marca + estado --}}
                     <div class="flex min-w-0 items-center gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-500/30">
-                            <x-heroicon-o-map class="h-5 w-5" />
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-500/30">
+                            <x-heroicon-o-map class="h-6 w-6" />
                         </div>
                         <div class="hidden min-w-0 flex-col sm:flex">
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-[#e0e2ec]">MesaMap POS</span>
+                            <span class="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-[#e0e2ec]">MesaMap POS</span>
                             <span class="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-[#fbbc48]">
                                 <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
                                 En Servicio
@@ -36,18 +36,14 @@
                                 </div>
                             </div>
                         @elseif ($this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON)
-                            <div class="flex items-center gap-1.5">
-                                <select
-                                    wire:model="selectedTableId"
-                                    class="rounded-lg border-0 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900 shadow-sm outline-none ring-1 ring-slate-200 focus:ring-amber-500 dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:ring-[#414753]"
-                                >
-                                    <option value="">Elegí una mesa…</option>
-                                    @foreach ($this->tables as $table)
-                                        <option value="{{ $table['id'] }}">Mesa #{{ $table['number'] }} — {{ $table['location'] }} ({{ $table['status_label'] }})</option>
-                                    @endforeach
-                                </select>
-                                <span class="hidden text-[11px] text-slate-500 dark:text-[#c1c6d5] lg:inline">Elegí la mesa para tomar la comanda</span>
-                            </div>
+                            <button
+                                wire:click="openTableModal"
+                                class="group flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-amber-400 active:scale-[0.98] dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
+                            >
+                                <x-heroicon-o-hand-raised class="h-5 w-5" />
+                                <span>Elegí una mesa</span>
+                            </button>
+                            <span class="hidden text-[11px] text-slate-500 dark:text-[#c1c6d5] lg:inline">Elegí la mesa para tomar la comanda</span>
                         @else
                             <div class="text-xs font-bold text-slate-500 dark:text-[#c1c6d5]">Para Llevar — sin mesa</div>
                         @endif
@@ -60,12 +56,12 @@
                             <button
                                 wire:click="setOrderType('{{ \App\Filament\Pages\CrearPedido::TYPE_SALON }}')"
                                 @disabled($tableLockedFromMap)
-                                class="rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors {{ $this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON ? 'bg-amber-500 text-white shadow-sm dark:bg-[#fbbc48] dark:text-[#422c00]' : 'text-slate-500 hover:text-slate-900 dark:text-[#c1c6d5] dark:hover:text-[#e0e2ec]' }}"
+                                class="rounded-lg px-3 py-2 text-sm font-bold transition-colors {{ $this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON ? 'bg-amber-500 text-white shadow-sm dark:bg-[#fbbc48] dark:text-[#422c00]' : 'text-slate-500 hover:text-slate-900 dark:text-[#c1c6d5] dark:hover:text-[#e0e2ec]' }}"
                             >Comer Aquí</button>
                             <button
                                 wire:click="setOrderType('{{ \App\Filament\Pages\CrearPedido::TYPE_TAKEAWAY }}')"
                                 @disabled($tableLockedFromMap)
-                                class="rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors {{ $this->orderType === \App\Filament\Pages\CrearPedido::TYPE_TAKEAWAY ? 'bg-amber-500 text-white shadow-sm dark:bg-[#fbbc48] dark:text-[#422c00]' : 'text-slate-500 hover:text-slate-900 dark:text-[#c1c6d5] dark:hover:text-[#e0e2ec]' }} {{ $tableLockedFromMap ? 'opacity-40' : '' }}"
+                                class="rounded-lg px-3 py-2 text-sm font-bold transition-colors {{ $this->orderType === \App\Filament\Pages\CrearPedido::TYPE_TAKEAWAY ? 'bg-amber-500 text-white shadow-sm dark:bg-[#fbbc48] dark:text-[#422c00]' : 'text-slate-500 hover:text-slate-900 dark:text-[#c1c6d5] dark:hover:text-[#e0e2ec]' }} {{ $tableLockedFromMap ? 'opacity-40' : '' }}"
                             >Para Llevar</button>
                         </div>
 
@@ -127,27 +123,25 @@
                 <div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-12">
 
                     {{-- ─────────── CATÁLOGO (70%) ─────────── --}}
-                    <div class="flex min-w-0 flex-col gap-4 xl:col-span-8">
+                    <div class="flex min-w-0 flex-col gap-4 xl:col-span-7">
 
-                        {{-- Carrusel de categorías --}}
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            <button
-                                wire:click="setCategory(null)"
-                                class="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-sm transition-all {{ $activeCategory === null ? 'bg-amber-500 text-white shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]' : 'bg-white text-slate-700 hover:bg-slate-200 dark:bg-[#1c2026] dark:text-[#e0e2ec] dark:hover:bg-[#272a31]' }}"
-                            >
-                                <span>⭐</span>
-                                <span>Todos</span>
-                                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $activeCategory === null ? 'bg-white/20 text-inherit' : 'bg-slate-200 text-slate-600 dark:bg-[#272a31] dark:text-[#c1c6d5]' }}">{{ $this->totalAvailableCount }}</span>
-                            </button>
-
-                            @foreach ($this->categories as $category)
+                        {{-- Pestañas táctiles Comida / Bebidas (+ Todos) --}}
+                        <div class="grid grid-cols-3 gap-2.5">
+                            @php
+                                $sections = [
+                                    ['key' => \App\Filament\Pages\CrearPedido::SECTION_TODO, 'emoji' => '⭐', 'label' => 'Todos'],
+                                    ['key' => \App\Filament\Pages\CrearPedido::SECTION_FOOD, 'emoji' => '🍽️', 'label' => 'Comida'],
+                                    ['key' => \App\Filament\Pages\CrearPedido::SECTION_DRINKS, 'emoji' => '🥤', 'label' => 'Bebidas'],
+                                ];
+                            @endphp
+                            @foreach ($sections as $section)
                                 <button
-                                    wire:click="setCategory({{ $category['id'] }})"
-                                    class="flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-sm transition-all {{ $activeCategory === $category['id'] ? 'bg-amber-500 text-white shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]' : 'bg-white text-slate-700 hover:bg-slate-200 dark:bg-[#1c2026] dark:text-[#e0e2ec] dark:hover:bg-[#272a31]' }}"
+                                    wire:click="setSection('{{ $section['key'] }}')"
+                                    class="flex items-center justify-center gap-2 rounded-xl py-3 text-base font-bold shadow-sm transition-all active:scale-[0.98] {{ $this->activeSection === $section['key'] ? 'bg-amber-500 text-white shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]' : 'bg-white text-slate-700 hover:bg-slate-200 dark:bg-[#1c2026] dark:text-[#e0e2ec] dark:hover:bg-[#272a31]' }}"
                                 >
-                                    <span>{{ $category['emoji'] }}</span>
-                                    <span>{{ $category['name'] }}</span>
-                                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $activeCategory === $category['id'] ? 'bg-white/20 text-inherit' : 'bg-slate-200 text-slate-600 dark:bg-[#272a31] dark:text-[#c1c6d5]' }}">{{ $category['count'] }}</span>
+                                    <span class="text-xl leading-none">{{ $section['emoji'] }}</span>
+                                    <span>{{ $section['label'] }}</span>
+                                    <span class="rounded-full px-2 py-0.5 text-xs font-bold {{ $this->activeSection === $section['key'] ? 'bg-white/20 text-inherit' : 'bg-slate-200 text-slate-600 dark:bg-[#272a31] dark:text-[#c1c6d5]' }}">{{ $this->sectionCounts[$section['key']] }}</span>
                                 </button>
                             @endforeach
                         </div>
@@ -183,49 +177,51 @@
                         </div>
 
                         {{-- Grid táctil de productos --}}
-                        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                        <div class="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
                             @forelse ($this->catalogProducts as $product)
-                                @php($stock = $this->stockMap[$product->id] ?? 0)
-                                @php($outOfStock = $stock <= 0)
+                                @php
+                                    $stock = $this->stockMap[$product->id] ?? 0;
+                                    $outOfStock = $stock <= 0;
+                                @endphp
                                 <div
                                     @if (! $outOfStock) wire:click="addItem({{ $product->id }})" @endif
-                                    class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-150 hover:bg-slate-50 active:scale-[0.98] dark:bg-[#1c2026] dark:hover:bg-[#272a31] {{ $outOfStock ? 'cursor-not-allowed opacity-60' : '' }}"
+                                    class="group relative flex min-h-[260px] cursor-pointer flex-col justify-between overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-150 hover:bg-slate-50 active:scale-[0.98] dark:bg-[#1c2026] dark:hover:bg-[#272a31] {{ $outOfStock ? 'cursor-not-allowed opacity-60' : '' }}"
                                 >
                                     {{-- Cabecera visual: gradiente + emoji de categoría (Product no tiene campo imagen) --}}
-                                    <div class="relative flex h-24 w-full items-center justify-center bg-gradient-to-br from-amber-100 via-amber-50 to-slate-100 dark:from-[#32353c] dark:via-[#272a31] dark:to-[#181c22]">
-                                        <span class="text-4xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">{{ \App\Filament\Pages\CrearPedido::categoryEmoji($product->category?->name ?? '') }}</span>
+                                    <div class="relative flex h-40 w-full items-center justify-center bg-gradient-to-br from-amber-100 via-amber-50 to-slate-100 sm:h-44 dark:from-[#32353c] dark:via-[#272a31] dark:to-[#181c22]">
+                                        <span class="text-5xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">{{ \App\Filament\Pages\CrearPedido::categoryEmoji($product->category?->name ?? '') }}</span>
 
                                         @if (in_array($product->id, $this->topSellerIds, true))
-                                            <span class="absolute left-2 top-2 flex items-center gap-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-md dark:bg-[#fbbc48] dark:text-[#422c00]">
-                                                <x-heroicon-o-fire class="h-3 w-3" />
+                                            <span class="absolute left-2 top-2 flex items-center gap-1 rounded bg-amber-500 px-2 py-1 text-xs font-bold text-white shadow-md dark:bg-[#fbbc48] dark:text-[#422c00]">
+                                                <x-heroicon-o-fire class="h-4 w-4" />
                                                 Top Ventas
                                             </span>
                                         @endif
 
                                         @if ($product->preparation_time_minutes > 0)
-                                            <span class="absolute bottom-2 right-2 rounded bg-white/85 px-1.5 py-0.5 font-mono text-[10px] font-bold text-slate-700 backdrop-blur-md dark:bg-[#0b0e15]/85 dark:text-[#e0e2ec]">{{ $product->preparation_time_minutes }} min prep</span>
+                                            <span class="absolute bottom-2 right-2 rounded bg-white/85 px-2 py-1 font-mono text-xs font-bold text-slate-700 backdrop-blur-md dark:bg-[#0b0e15]/85 dark:text-[#e0e2ec]">{{ $product->preparation_time_minutes }} min prep</span>
                                         @endif
 
                                         @if ($outOfStock)
-                                            <span class="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-[#93000a] dark:text-[#ffdad6]">
-                                                <x-heroicon-o-x-circle class="h-3 w-3" />
+                                            <span class="absolute bottom-2 left-2 flex items-center gap-1 rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-700 dark:bg-[#93000a] dark:text-[#ffdad6]">
+                                                <x-heroicon-o-x-circle class="h-4 w-4" />
                                                 Sin stock
                                             </span>
                                         @endif
                                     </div>
 
                                     {{-- Cuerpo de la tarjeta --}}
-                                    <div class="flex flex-grow flex-col p-3">
+                                    <div class="flex flex-grow flex-col p-4">
                                         <div class="flex items-start justify-between gap-1">
-                                            <span class="line-clamp-1 text-sm font-bold text-slate-900 transition-colors group-hover:text-amber-600 dark:text-[#e0e2ec] dark:group-hover:text-[#fbbc48]">{{ $product->name }}</span>
+                                            <span class="line-clamp-2 text-base font-bold leading-snug text-slate-900 transition-colors group-hover:text-amber-600 dark:text-[#e0e2ec] dark:group-hover:text-[#fbbc48]">{{ $product->name }}</span>
                                         </div>
                                         @if ($product->description)
-                                            <p class="mt-0.5 line-clamp-1 text-[11px] text-slate-500 dark:text-[#c1c6d5]">{{ $product->description }}</p>
+                                            <p class="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-[#c1c6d5]">{{ $product->description }}</p>
                                         @endif
-                                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-[#272a31]">
-                                            <span class="text-lg font-bold text-amber-600 dark:text-[#fbbc48]">${{ \App\Filament\Pages\CrearPedido::money($product->price) }}</span>
-                                            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition-colors group-hover:bg-amber-500 group-hover:text-white dark:bg-[#32353c] dark:text-[#e0e2ec] dark:group-hover:bg-[#fbbc48] dark:group-hover:text-[#422c00]">
-                                                <x-heroicon-o-plus class="h-4 w-4" />
+                                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-[#272a31]">
+                                            <span class="text-2xl font-bold text-amber-600 dark:text-[#fbbc48]">${{ \App\Filament\Pages\CrearPedido::money($product->price) }}</span>
+                                            <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition-colors group-hover:bg-amber-500 group-hover:text-white dark:bg-[#32353c] dark:text-[#e0e2ec] dark:group-hover:bg-[#fbbc48] dark:group-hover:text-[#422c00]">
+                                                <x-heroicon-o-plus class="h-5 w-5" />
                                             </span>
                                         </div>
                                     </div>
@@ -239,7 +235,7 @@
                     </div>
 
                     {{-- ─────────── TICKET / COMANDA (30%) ─────────── --}}
-                    <div class="relative flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-xl dark:bg-[#181c22] xl:col-span-4">
+                    <div class="relative flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-xl dark:bg-[#181c22] xl:col-span-5">
 
                         {{-- Header del ticket --}}
                         <div class="mb-3 rounded-xl bg-slate-50 p-3 dark:bg-[#1c2026]">
@@ -247,13 +243,13 @@
                                 <div class="flex items-center gap-2">
                                     @if ($this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON && $this->selectedTableId)
                                         <span class="rounded bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-[#fbbc48] dark:text-[#422c00]">MESA #{{ $this->selectedTable?->number }}</span>
-                                        <span class="text-sm font-bold text-slate-900 dark:text-[#e0e2ec]">{{ $this->selectedTable?->location }}</span>
+                                        <span class="text-base font-bold text-slate-900 dark:text-[#e0e2ec]">{{ $this->selectedTable?->location }}</span>
                                     @elseif ($this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON)
                                         <span class="rounded bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700 dark:bg-[#93000a] dark:text-[#ffdad6]">SIN MESA</span>
-                                        <span class="text-sm font-bold text-slate-900 dark:text-[#e0e2ec]">Elegí una mesa para continuar</span>
+                                        <span class="text-base font-bold text-slate-900 dark:text-[#e0e2ec]">Elegí una mesa para continuar</span>
                                     @else
                                         <span class="rounded bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-[#fbbc48] dark:text-[#422c00]">🥡 PARA LLEVAR</span>
-                                        <span class="text-sm font-bold text-slate-900 dark:text-[#e0e2ec]">Comanda a retirar</span>
+                                        <span class="text-base font-bold text-slate-900 dark:text-[#e0e2ec]">Comanda a retirar</span>
                                     @endif
                                 </div>
                                 <span class="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-amber-600 dark:bg-[#0b0e15] dark:text-[#fbbc48]">NUEVA</span>
@@ -275,7 +271,7 @@
                                         <div class="min-w-0 flex-grow pr-2">
                                             <div class="flex items-center gap-1.5">
                                                 <span class="font-mono font-bold text-amber-600 dark:text-[#fbbc48]">{{ $item['qty'] }}x</span>
-                                                <span class="text-sm font-bold text-slate-900 dark:text-[#e0e2ec]">{{ $item['name'] }}</span>
+                                                <span class="text-base font-bold text-slate-900 dark:text-[#e0e2ec]">{{ $item['name'] }}</span>
                                             </div>
                                             @if (trim($item['note'] ?? '') !== '')
                                                 <p class="mt-0.5 flex items-center gap-1 text-[11px] text-amber-600 dark:text-[#fbbc48]">
@@ -340,7 +336,7 @@
                                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">TOTAL COMANDA</span>
                                     <div class="text-[10px] text-slate-400 dark:text-[#c1c6d5]/70">Subtotal = Total · IVA no calculado por ítem</div>
                                 </div>
-                                <span class="font-mono text-3xl font-bold tracking-tight text-amber-600 dark:text-[#fbbc48]">${{ \App\Filament\Pages\CrearPedido::money($this->total) }}</span>
+                                <span class="font-mono text-4xl font-bold tracking-tight text-amber-600 dark:text-[#fbbc48]">${{ \App\Filament\Pages\CrearPedido::money($this->total) }}</span>
                             </div>
                         </div>
 
@@ -349,7 +345,7 @@
                             <button
                                 wire:click="submitOrder"
                                 @disabled($this->itemCount === 0 || ($this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON && ! $this->selectedTableId))
-                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 text-base font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
+                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
                                 id="sendKdsBtn"
                             >
                                 <x-heroicon-o-bolt class="h-6 w-6" />
@@ -364,28 +360,77 @@
             </main>
         </div>
 
-        {{-- ══════════════ MODAL: CAMBIAR MESA ══════════════ --}}
+        {{-- ══════════════ MODAL: CAMBIAR MESA (grilla táctil) ══════════════ --}}
         @if ($showTableModal)
             <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-[#0b0e15]/80" wire:click.self="showTableModal = false">
-                <div class="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl dark:bg-[#1c2026]">
+                <div class="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white p-5 shadow-2xl dark:bg-[#1c2026]">
                     <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-[#fbbc48]">Cambiar Mesa</span>
-                            <h3 class="text-lg font-bold text-slate-900 dark:text-[#e0e2ec]">¿A qué mesa va la comanda?</h3>
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-[#fbbc48]">Cambiar Mesa</span>
+                            <h3 class="text-xl font-bold text-slate-900 dark:text-[#e0e2ec]">¿A qué mesa va la comanda?</h3>
                         </div>
-                        <button wire:click="showTableModal = false" class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:bg-[#272a31] dark:text-[#e0e2ec]">
+                        <button wire:click="showTableModal = false" class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200 dark:bg-[#272a31] dark:text-[#e0e2ec]">
                             <x-heroicon-o-x-mark class="h-5 w-5" />
                         </button>
                     </div>
-                    <select wire:model="newTableId" class="mt-4 w-full rounded-xl border-0 bg-slate-100 p-3 text-sm font-semibold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-amber-500 dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:ring-[#414753]">
-                        <option value="">Sin mesa (solo para llevar)</option>
-                        @foreach ($this->tables as $table)
-                            <option value="{{ $table['id'] }}">Mesa #{{ $table['number'] }} — {{ $table['location'] }} ({{ $table['status_label'] }})</option>
-                        @endforeach
-                    </select>
-                    <div class="mt-4 flex gap-2">
+
+                    {{-- Grilla táctil de mesas agrupada por ubicación --}}
+                    @php
+                        $groupedTables = $this->tables->groupBy('location')->sortKeys();
+                        $statusStyles = [
+                            'Disponible' => ['dot' => 'bg-green-500', 'label' => 'text-green-700 dark:text-green-400', 'border' => 'border-green-500/40 dark:border-green-400/40'],
+                            'Ocupada' => ['dot' => 'bg-red-500', 'label' => 'text-red-700 dark:text-red-400', 'border' => 'border-red-500/40 dark:border-red-400/40'],
+                            'Reservada' => ['dot' => 'bg-amber-500', 'label' => 'text-amber-700 dark:text-amber-400', 'border' => 'border-amber-500/40 dark:border-amber-400/40'],
+                            'Mantenimiento' => ['dot' => 'bg-slate-400', 'label' => 'text-slate-600 dark:text-slate-400', 'border' => 'border-slate-400/40 dark:border-slate-400/40'],
+                        ];
+                    @endphp
+
+                    <div class="mt-4 flex-1 overflow-y-auto pr-1 [scrollbar-width:thin]">
+                        @forelse ($groupedTables as $location => $tables)
+                            <div class="mb-4">
+                                <h4 class="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">
+                                    <x-heroicon-o-map-pin class="h-4 w-4 text-amber-600 dark:text-[#fbbc48]" />
+                                    {{ $location }}
+                                </h4>
+                                <div class="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                                    @foreach ($tables as $table)
+                                            @php
+                                                $style = $statusStyles[$table['status_label']] ?? $statusStyles['Disponible'];
+                                                $selected = (int) $this->newTableId === (int) $table['id'];
+                                            @endphp
+                                            <button
+                                            wire:click="$set('newTableId', {{ $table['id'] }})"
+                                            class="flex flex-col items-center gap-0.5 rounded-xl border-2 bg-slate-50 px-2 py-3 text-center transition-all hover:bg-slate-100 active:scale-[0.97] dark:bg-[#0b0e15] dark:hover:bg-[#272a31] {{ $selected ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-[#fbbc48] dark:ring-offset-[#1c2026] border-amber-500 dark:border-[#fbbc48]' : $style['border'] . ' border-transparent' }}"
+                                        >
+                                            <span class="font-mono text-2xl font-black leading-none text-slate-900 dark:text-[#e0e2ec]">{{ $table['number'] }}</span>
+                                            <span class="text-[11px] font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ $table['location'] }}</span>
+                                            <span class="mt-1 flex items-center gap-1 text-[11px] font-bold {{ $style['label'] }}">
+                                                <span class="inline-block h-2 w-2 rounded-full {{ $style['dot'] }}"></span>
+                                                {{ $table['status_label'] }}
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @empty
+                            <div class="rounded-xl border border-dashed border-slate-200 py-10 text-center dark:border-[#414753]">
+                                <x-heroicon-o-table-cells class="mx-auto mb-2 h-10 w-10 text-slate-400" />
+                                <p class="text-sm font-semibold text-slate-500 dark:text-[#c1c6d5]">No hay mesas cargadas</p>
+                                <p class="mt-1 text-xs text-slate-400 dark:text-[#c1c6d5]/70">Creá mesas desde el Mapa de Mesas para poder tomar la comanda.</p>
+                            </div>
+                        @endforelse
+                    </div>
+
+                    <div class="mt-4 flex gap-2 border-t border-slate-100 pt-4 dark:border-[#272a31]">
                         <button wire:click="showTableModal = false" class="w-1/3 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-[#272a31] dark:text-[#e0e2ec]">Cancelar</button>
-                        <button wire:click="confirmTableChange" class="w-2/3 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition-colors hover:bg-amber-400 dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]">Aplicar Mesa</button>
+                        <button
+                            wire:click="confirmTableChange"
+                            @disabled(! $this->newTableId)
+                            class="flex w-2/3 items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-3 text-sm font-bold text-white transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
+                        >
+                            <x-heroicon-o-check class="h-4 w-4" />
+                            Aplicar Mesa
+                        </button>
                     </div>
                 </div>
             </div>
