@@ -351,6 +351,14 @@
                                 <x-heroicon-o-bolt class="h-7 w-7" />
                                 ENVIAR A COCINA
                             </button>
+                            <a
+                                href="{{ \App\Filament\Pages\CobrarCuenta::getUrl($this->selectedTableId ? ['table_id' => $this->selectedTableId] : []) }}"
+                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-3.5 text-lg font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-200 active:scale-[0.99] dark:bg-[#272a31] dark:text-[#e0e2ec] dark:hover:bg-[#32353c]"
+                                title="Cobrar la cuenta de la mesa en el TPV de Cobro"
+                            >
+                                <x-heroicon-o-banknotes class="h-6 w-6" />
+                                COBRAR / FACTURAR
+                            </a>
                             <button wire:click="clearCart" class="mt-0.5 py-1.5 text-center text-sm font-semibold text-slate-400 transition-colors hover:text-red-600 dark:text-[#c1c6d5]/70 dark:hover:text-[#ffb4ab]">
                                 Limpiar toda la comanda
                             </button>

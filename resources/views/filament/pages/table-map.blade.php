@@ -656,6 +656,18 @@
                         </span>
                     </div>
                 </div>
+
+                @if ($selectedTableId)
+                    <div class="text-center">
+                        <a
+                            href="{{ \App\Filament\Pages\CobrarCuenta::getUrl(['table_id' => $selectedTableId]) }}"
+                            class="inline-flex items-center gap-1.5 text-sm font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                        >
+                            <x-heroicon-o-banknotes class="w-4 h-4" />
+                            Abrir TPV de Cuenta (descuentos + vuelto)
+                        </a>
+                    </div>
+                @endif
             </div>
 
             <x-slot name="footerActions">
