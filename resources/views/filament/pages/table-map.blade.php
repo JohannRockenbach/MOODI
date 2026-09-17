@@ -3,7 +3,6 @@
     <div class="space-y-6" style="font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;">
         @php
             $selected = $this->selectedTable;
-            $discounts = \App\Models\Discount::where('is_active', true)->get();
             $kpis = [
                 [
                     'label' => 'DISPONIBLES',
@@ -336,14 +335,13 @@
                             <span>Crear Pedido</span>
                         </button>
                         <button
-                            wire:click="prepareCobroMesa({{ $selected['id'] }})"
-                            x-on:click="$dispatch('open-modal', { id: 'cobrar-mesa' })"
+                            wire:click="abrirCobro({{ $selected['id'] }})"
                             @disabled($selected['orders_count'] === 0)
                             class="w-full py-2.5 {{ $selected['orders_count'] === 0 ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 text-white' }} active:scale-[0.99] font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-md"
                             @if($selected['orders_count'] === 0) title="No hay pedidos activos para cobrar" @endif
                         >
                             <x-heroicon-o-credit-card class="w-4 h-4" />
-                            <span>Cobrar Cuenta / Imprimir Factura</span>
+                            <span>Cobrar Cuenta</span>
                         </button>
                         @if(in_array($selected['status'], ['available', 'occupied'], true))
                             <button
@@ -550,143 +548,19 @@
             <span x-text="msg">Mesa seleccionada</span>
         </div>
 
-        {{-- ============ MODAL DE COBRO (tema del sistema) ============ --}}
-        <x-filament::modal id="cobrar-mesa" width="2xl">
-            <x-slot name="heading">
-                <div class="flex items-center gap-3">
-                    <div class="bg-amber-500 rounded-xl p-3">
-                        <x-heroicon-o-currency-dollar class="w-8 h-8 text-white" />
-                    </div>
-                    <h3 class="text-2xl font-black text-slate-900 dark:text-white">Cobrar Mesa</h3>
-                </div>
-            </x-slot>
-
-            <div class="space-y-6">
-                {{-- Total sin descuento --}}
-                <div class="bg-slate-50 dark:bg-[#0f0f0f] rounded-lg p-6 border border-slate-200 dark:border-slate-800">
-                    <div class="flex justify-between items-center">
-                        <span class="text-lg font-bold text-slate-700 dark:text-slate-300">Subtotal</span>
-                        <span class="text-3xl font-black text-slate-900 dark:text-white">
-                            ${{ number_format($totalAmount, 0, ',', '.') }}
-                        </span>
-                    </div>
-                </div>
-
-                {{-- Método de Pago --}}
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
-                        💳 Método de Pago
-                    </label>
-                    <div class="grid grid-cols-3 gap-3">
-                        <button
-                            wire:click="$set('paymentMethod', 'cash')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
-                                {{ $paymentMethod === 'cash' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
-                            <x-heroicon-o-banknotes class="w-8 h-8 mb-2" />
-                            Efectivo
-                        </button>
-                        <button
-                            wire:click="$set('paymentMethod', 'card')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
-                                {{ $paymentMethod === 'card' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
-                            <x-heroicon-o-credit-card class="w-8 h-8 mb-2" />
-                            Tarjeta
-                        </button>
-                        <button
-                            wire:click="$set('paymentMethod', 'transfer')"
-                            class="flex flex-col items-center justify-center p-4 rounded-lg border font-bold transition-all
-                                {{ $paymentMethod === 'transfer' ? 'bg-amber-500 border-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white dark:bg-[#0f0f0f] border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-500' }}">
-                            <x-heroicon-o-arrows-right-left class="w-8 h-8 mb-2" />
-                            Transferencia
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Descuentos --}}
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">
-                        🏷️ Aplicar Descuentos (Opcional)
-                    </label>
-                    @if($discounts->count() > 0)
-                        <div class="space-y-2 max-h-48 overflow-y-auto bg-white dark:bg-[#0f0f0f] rounded-lg border border-slate-200 dark:border-slate-800 p-3">
-                            @foreach($discounts as $discount)
-                                <label class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer border border-transparent hover:border-amber-500/50 transition-all">
-                                    <input
-                                        type="checkbox"
-                                        wire:model.live="selectedDiscounts"
-                                        value="{{ $discount->id }}"
-                                        class="w-5 h-5 text-amber-500 border-slate-300 dark:border-slate-600 dark:bg-slate-900 rounded focus:ring-amber-500">
-                                    <div class="flex-1">
-                                        <div class="font-bold text-slate-900 dark:text-white">{{ $discount->name }}</div>
-                                        <div class="text-sm text-slate-500 dark:text-slate-400">
-                                            {{ $discount->type === 'percentage' ? $discount->value . '%' : '$' . number_format($discount->value, 0, ',', '.') }} de descuento
-                                        </div>
-                                    </div>
-                                </label>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-4 text-slate-500 italic">
-                            No hay descuentos disponibles
-                        </div>
-                    @endif
-                </div>
-
-                {{-- Descuento aplicado --}}
-                @if($discountAmount > 0)
-                    <div class="bg-amber-50 dark:bg-amber-500/10 rounded-lg p-4 border border-amber-500/40">
-                        <div class="flex justify-between items-center">
-                            <span class="text-lg font-bold text-amber-800 dark:text-amber-300">Descuento Total</span>
-                            <span class="text-2xl font-black text-amber-600 dark:text-amber-400">
-                                -${{ number_format($discountAmount, 0, ',', '.') }}
-                            </span>
-                        </div>
-                    </div>
-                @endif
-
-                {{-- Total final --}}
-                <div class="bg-[#0d0d0d] rounded-lg p-6 border border-amber-500/60">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="text-lg font-bold text-amber-400 mb-1">TOTAL A COBRAR</p>
-                            <p class="text-sm text-amber-400/75">{{ ucfirst($paymentMethod === 'cash' ? 'Efectivo' : ($paymentMethod === 'card' ? 'Tarjeta' : 'Transferencia')) }}</p>
-                        </div>
-                        <span class="text-5xl font-black text-amber-400">
-                            ${{ number_format(max(0, $totalAmount - $discountAmount), 0, ',', '.') }}
-                        </span>
-                    </div>
-                </div>
-
-                @if ($selectedTableId)
-                    <div class="text-center">
-                        <a
-                            href="{{ \App\Filament\Pages\CobrarCuenta::getUrl(['table_id' => $selectedTableId]) }}"
-                            class="inline-flex items-center gap-1.5 text-sm font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                        >
-                            <x-heroicon-o-banknotes class="w-4 h-4" />
-                            Abrir TPV de Cuenta (descuentos + vuelto)
-                        </a>
-                    </div>
-                @endif
-            </div>
-
-            <x-slot name="footerActions">
-                <div class="flex gap-3 w-full">
-                    <button
-                        x-on:click="$dispatch('close-modal', { id: 'cobrar-mesa' })"
-                        class="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black py-3 px-6 rounded-lg text-lg">
-                        Cancelar
-                    </button>
-                    <button
-                        wire:click="cobrarMesa"
-                        wire:loading.attr="disabled"
-                        class="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-black py-3 px-6 rounded-lg border border-amber-600 shadow-lg shadow-amber-500/20 text-lg flex items-center justify-center gap-2">
-                        <x-heroicon-o-check-circle class="w-6 h-6" />
-                        <span wire:loading.remove>Confirmar Cobro</span>
-                        <span wire:loading>Procesando...</span>
-                    </button>
-                </div>
-            </x-slot>
-        </x-filament::modal>
+        {{-- ============ MODAL RÁPIDO DE COBRO (misma página, F2 / botón Cobrar) ============ --}}
+        @include('filament.modals.cobro-cuenta-modal')
     </div>
+
+    {{-- F2 robusto: listener GLOBAL (no wire:keydown, que a veces no llega al
+         componente cuando el foco está en un input). La página responde con
+         #[On('solicitar-cobro')] → abrirCobro() con la mesa seleccionada. --}}
+    <script>
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'F2' || e.keyCode === 113) {
+                e.preventDefault();
+                Livewire.dispatch('solicitar-cobro');
+            }
+        });
+    </script>
 </x-filament-panels::page>

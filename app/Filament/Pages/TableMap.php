@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasCobroRapido;
 use App\Models\Reservation;
 use App\Models\Table;
 use Filament\Actions\Action;
@@ -16,6 +17,8 @@ use Livewire\Attributes\On;
 
 class TableMap extends Page
 {
+    use HasCobroRapido;
+
     protected static ?string $navigationIcon = 'heroicon-o-map';
 
     protected static string $view = 'filament.pages.table-map';
@@ -959,7 +962,24 @@ class TableMap extends Page
         }), 2);
     }
 
-    // Acciones del header
+    // ─────────────────────────────────────────────────────────────
+    // COBRO RÁPIDO (trait HasCobroRapido — modal en la misma página, F2)
+    // El trait expone abrirCobro(?int $tableId = null): la mesa pasada por el
+    // botón "Cobrar Cuenta" o la mesa seleccionada del plano (F2). El modal
+    // del mapa NO incluye draft (la comanda en curso vive en el TPV).
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * El cobro de la mesa terminó con éxito (cobrada/liberada): refrescar el
+     * mapa para que las mesas y KPIs reflejen el nuevo estado.
+     */
+    #[On('comanda-cobrada')]
+    public function onComandaCobrada(): void
+    {
+        $this->loadTables();
+    }
+
+    // Registrar acciones del header
     protected function getHeaderActions(): array
     {
         return [

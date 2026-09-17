@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
  * CUALQUIER flujo de cobro la reutilice sin duplicarla:
  * - UpdateStockListener (transición a 'processing').
  * - TableMap::cobrarMesa() (cobro por Mapa).
- * - TPV CobrarCuenta (cobro de cuenta de mesa).
+ * - HasCobroRapido (modal rápido de cobro en la página).
  *
  * IDEMPOTENTE: si $order->stock_deducted ya es true, no hace nada (el
  * pedido ya consumió su stock y no se vuelve a descontar).

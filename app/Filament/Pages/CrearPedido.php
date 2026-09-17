@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasCobroRapido;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Table;
@@ -10,6 +11,7 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\On;
 
 /**
  * Punto de Venta Mozo — Crear Pedido Rápido (TPV de toma de comanda).
@@ -21,6 +23,8 @@ use Illuminate\Support\Collection;
  */
 class CrearPedido extends Page
 {
+    use HasCobroRapido;
+
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
 
     protected static string $view = 'filament.pages.crear-pedido';
@@ -40,10 +44,33 @@ class CrearPedido extends Page
     public const TYPE_SALON = 'salon';
     public const TYPE_TAKEAWAY = 'para_llevar';
 
-    // Secciones del catálogo: el dueño distingue SOLO Comida y Bebidas.
+    // Secciones del catálogo: el dueño distingue SOLO Comida y Bebidas
+    // (pestañas). Las SECCIONES por categoría (agrupado del catálogo y del
+    // ticket) se derivan del nombre de categoría normalizado; orden fijo:
+    // Bebidas → Papas → Hamburguesas → Entradas → Postres → Otros.
     public const SECTION_TODO = 'todo';
     public const SECTION_FOOD = 'comida';
     public const SECTION_DRINKS = 'bebidas';
+
+    public const SECTION_BEBIDAS = 'bebidas';
+    public const SECTION_PAPAS = 'papas';
+    public const SECTION_HAMBURGUESAS = 'hamburguesas';
+    public const SECTION_ENTRADAS = 'entradas';
+    public const SECTION_POSTRES = 'postres';
+    public const SECTION_OTROS = 'otros';
+
+    /**
+     * Orden fijo de secciones derivadas de la categoría real del producto.
+     * Se usa tanto para agrupar el catálogo como el ticket de la comanda.
+     */
+    public const CATALOG_SECTIONS = [
+        ['key' => 'bebidas', 'label' => '🥤 Bebidas'],
+        ['key' => 'papas', 'label' => '🍟 Papas'],
+        ['key' => 'hamburguesas', 'label' => '🍔 Hamburguesas'],
+        ['key' => 'entradas', 'label' => '🥗 Entradas y Picadas'],
+        ['key' => 'postres', 'label' => '🍰 Postres'],
+        ['key' => 'otros', 'label' => '🍽️ Otros'],
+    ];
 
     // Mesa seleccionada: si llega por ?table_id= (desde el Mapa de Mesas)
     // queda bloqueada y NO se puede cambiar ni pasar a Para Llevar.
@@ -168,6 +195,41 @@ class CrearPedido extends Page
         }
 
         return $query->orderBy('name')->get();
+    }
+
+    /**
+     * Productos del catálogo (YA filtrados por sección activa/búsqueda/promo)
+     * agrupados en las secciones derivadas de su categoría real.
+     *
+     * Devuelve, en el orden fijo de CATALOG_SECTIONS y omitiendo las vacías:
+     * [['key' => 'bebidas', 'label' => '🥤 Bebidas', 'count' => N, 'products' => Collection<Product>], ...].
+     * La pestaña activa (Todos/Comida/Bebidas) sigue actuando como filtro
+     * global ANTES del agrupado: con "Bebidas" solo queda la sección bebidas,
+     * con "Comida" las secciones no-bebida y con "Todos" todas.
+     */
+    public function getCatalogSectionsProperty(): Collection
+    {
+        $products = $this->catalogProducts;
+
+        return collect(self::CATALOG_SECTIONS)
+            ->map(function (array $section) use ($products): ?array {
+                $sectionProducts = $products
+                    ->filter(fn (Product $product) => self::sectionKeyFor($product->category?->name ?? '') === $section['key'])
+                    ->values();
+
+                if ($sectionProducts->isEmpty()) {
+                    return null;
+                }
+
+                return [
+                    'key' => $section['key'],
+                    'label' => $section['label'],
+                    'count' => $sectionProducts->count(),
+                    'products' => $sectionProducts,
+                ];
+            })
+            ->filter()
+            ->values();
     }
 
     /**
@@ -376,6 +438,10 @@ class CrearPedido extends Page
             'price' => (float) $product->price,
             'qty' => 1,
             'note' => '',
+            // Sección derivada de la categoría real: se guarda en el ítem para
+            // agrupar el ticket por sección sin consultas extra.
+            'section_key' => self::sectionKeyFor($product->category?->name ?? ''),
+            'section_label' => self::sectionLabelFor(self::sectionKeyFor($product->category?->name ?? '')),
         ];
     }
 
@@ -545,8 +611,53 @@ class CrearPedido extends Page
     }
 
     // ─────────────────────────────────────────────────────────────
+    // COBRO RÁPIDO (trait HasCobroRapido — modal en la misma página, F2)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * El cobro terminó con éxito: la comanda en curso ya se cobró (y se creó
+     * el Order correspondiente) → limpiar el carrito para no duplicar nada en
+     * la próxima comanda. El modal vive en la MISMA página (trait): el evento
+     * 'comanda-cobrada' lo dispara el trait tras cobrar.
+     */
+    #[On('comanda-cobrada')]
+    public function onComandaCobrada(): void
+    {
+        $this->clearCart();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // HELPERS
     // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Sección derivada del nombre de categoría normalizado (misma normativa
+     * que categoryEmoji). Producto SIN categoría → 'otros'.
+     */
+    public static function sectionKeyFor(string $categoryName): string
+    {
+        $name = mb_strtolower($categoryName);
+
+        return match (true) {
+            str_contains($name, 'bebida'), str_contains($name, 'cerveza') => 'bebidas',
+            str_contains($name, 'papa'), str_contains($name, 'frita'), str_contains($name, 'fritas') => 'papas',
+            str_contains($name, 'hamburg'), str_contains($name, 'smash') => 'hamburguesas',
+            str_contains($name, 'entrada'), str_contains($name, 'picada') => 'entradas',
+            str_contains($name, 'postre') => 'postres',
+            default => 'otros',
+        };
+    }
+
+    public static function sectionLabelFor(string $sectionKey): string
+    {
+        foreach (self::CATALOG_SECTIONS as $section) {
+            if ($section['key'] === $sectionKey) {
+                return $section['label'];
+            }
+        }
+
+        return '🍽️ Otros';
+    }
 
     public static function categoryEmoji(string $categoryName): string
     {
