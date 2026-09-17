@@ -369,3 +369,84 @@ it('renderiza la grilla de mesas al entrar sin mesa precargada', function () {
         ->assertSee('Terraza')
         ->assertSee('36'); // número GRANDE de la tarjeta en la grilla
 });
+
+// ─────────────────────────────────────────────────────────────
+// SECCIONES POR CATEGORÍA (agrupado del catálogo y del ticket)
+// ─────────────────────────────────────────────────────────────
+
+it('agrupa el catálogo en secciones derivadas de la categoría con el orden fijo del dueño', function () {
+    $mozo = makePosUser('Mozo');
+    $burger = makePosProduct('Burger Clásica'); // Hamburguesas → hamburguesas
+    $papas = makePosProduct('Papas con Cheddar', [
+        'category_id' => Category::firstOrCreate(['name' => 'Papas Fritas'])->id,
+    ]); // Papas Fritas → papas
+    $coca = makePosProduct('Coca-Cola 350ml', [
+        'category_id' => Category::firstOrCreate(['name' => 'Bebidas'])->id,
+    ]); // Bebidas → bebidas
+    $postre = makePosProduct('Flan Casero', [
+        'category_id' => Category::firstOrCreate(['name' => 'Postres'])->id,
+    ]); // Postres → postres
+
+    $component = Livewire::actingAs($mozo)->test(CrearPedido::class);
+
+    $sections = $component->instance()->catalogSections;
+
+    // Orden fijo: bebidas → papas → hamburguesas → entradas → postres → otros.
+    expect($sections->pluck('key')->all())
+        ->toBe(['bebidas', 'papas', 'hamburguesas', 'postres'])
+        ->and($sections->pluck('label')->all())
+        ->toBe(['🥤 Bebidas', '🍟 Papas', '🍔 Hamburguesas', '🍰 Postres'])
+        ->and($sections->firstWhere('key', 'bebidas')['products']->pluck('id')->all())
+        ->toBe([$coca->id])
+        ->and($sections->firstWhere('key', 'papas')['products']->pluck('id')->all())
+        ->toBe([$papas->id])
+        ->and($sections->firstWhere('key', 'hamburguesas')['products']->pluck('id')->all())
+        ->toBe([$burger->id]);
+});
+
+it('clasifica como "otros" las categorías sin regla y respeta el filtro global de la pestaña', function () {
+    $mozo = makePosUser('Mozo');
+    $milanesa = makePosProduct('Milanesa Completa', [
+        'category_id' => Category::firstOrCreate(['name' => 'Minutas'])->id,
+    ]); // 'Minutas' no matchea ninguna regla → 'otros'
+    $coca = makePosProduct('Coca-Cola 350ml', [
+        'category_id' => Category::firstOrCreate(['name' => 'Bebidas'])->id,
+    ]);
+
+    // Sin nombre de categoría (producto sin categoría) → 'otros'.
+    expect(CrearPedido::sectionKeyFor(''))->toBe('otros')
+        ->and(CrearPedido::sectionKeyFor('Minutas'))->toBe('otros');
+
+    $all = Livewire::actingAs($mozo)->test(CrearPedido::class);
+    expect($all->instance()->catalogSections->firstWhere('key', 'otros')['products']->pluck('id')->all())
+        ->toContain($milanesa->id);
+
+    // Pestaña Bebidas: el filtro global antecede al agrupado → SOLO bebidas.
+    $drinks = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('setSection', CrearPedido::SECTION_DRINKS);
+
+    expect($drinks->instance()->catalogSections->pluck('key')->all())->toBe(['bebidas'])
+        ->and($drinks->instance()->catalogSections->firstWhere('key', 'bebidas')['products']->pluck('id')->all())
+        ->toBe([$coca->id]);
+});
+
+it('guarda la sección en el ítem del carrito para agrupar el ticket visualmente', function () {
+    $mozo = makePosUser('Mozo');
+    $burger = makePosProduct('Burger Clásica');
+    $coca = makePosProduct('Coca-Cola 350ml', [
+        'category_id' => Category::firstOrCreate(['name' => 'Bebidas'])->id,
+    ]);
+
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('addItem', $burger->id)
+        ->call('addItem', $coca->id);
+
+    $items = $component->instance()->items;
+
+    expect($items[0]['section_key'])->toBe('hamburguesas')
+        ->and($items[0]['section_label'])->toBe('🍔 Hamburguesas')
+        ->and($items[1]['section_key'])->toBe('bebidas')
+        ->and($items[1]['section_label'])->toBe('🥤 Bebidas');
+});
