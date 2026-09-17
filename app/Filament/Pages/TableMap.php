@@ -724,6 +724,14 @@ class TableMap extends Page
 
                 // Crear una venta por cada pedido de la mesa
                 foreach ($table->orders as $order) {
+                    // FIX stock (hallazgo): si el pedido nunca pasó por
+                    // 'processing' (stock_deducted=false), descontar stock
+                    // FEFO AHORA, antes de marcar completed. El cobro ya no
+                    // "olvida" descontar stock. Idempotente vía servicio.
+                    if (! $order->stock_deducted) {
+                        app(\App\Services\StockDeductionService::class)->deductForOrder($order);
+                    }
+
                     // Calcular total del pedido individual
                     $orderTotal = $order->orderProducts->sum(function ($item) {
                         return $item->quantity * $item->price;
