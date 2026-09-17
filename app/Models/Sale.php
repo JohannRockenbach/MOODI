@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,15 @@ class Sale extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Desglose de pagos del SPLIT: una fila (método + monto) por método usado.
+     * Sin split hay UNA fila con el método único y el total.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(SalePayment::class);
     }
 
     public function cashier(): BelongsTo
