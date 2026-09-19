@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Table;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
@@ -28,6 +29,13 @@ class CrearPedido extends Page
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
 
     protected static string $view = 'filament.pages.crear-pedido';
+
+    /**
+     * El TPV ocupa el ancho completo del viewport: el catálogo (grid 7/5,
+     * xl:grid-cols-4) deja de amontonarse contra el ticket. BasePage lo
+     * consume vía getMaxContentWidth() en el layout (→ 'max-w-full').
+     */
+    protected ?string $maxContentWidth = MaxWidth::Full->value;
 
     protected static ?string $title = 'Crear Pedido';
 

@@ -8,6 +8,7 @@ use App\Models\Table;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +23,12 @@ class TableMap extends Page
     protected static ?string $navigationIcon = 'heroicon-o-map';
 
     protected static string $view = 'filament.pages.table-map';
+
+    /**
+     * Mapa de mesas a ancho completo: el plano (grid 7/5) aprovecha todo el
+     * viewport. BasePage lo consume vía getMaxContentWidth() (→ 'max-w-full').
+     */
+    protected ?string $maxContentWidth = MaxWidth::Full->value;
 
     protected static ?string $title = 'Mapa de Mesas';
 
