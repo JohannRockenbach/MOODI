@@ -6,10 +6,14 @@ use App\Filament\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\Category;
 use Filament\Resources\Pages\Page;
+use Filament\Support\Enums\MaxWidth;
 
 class KitchenDashboard extends Page
 {
     protected static string $resource = OrderResource::class;
+
+    // Pantalla operativa a ancho completo, igual que el TPV (Crear Pedido / Mapa).
+    protected ?string $maxContentWidth = MaxWidth::Full->value;
 
     // Usar ruta de vista concisa bajo resources/views/filament/pages
     protected static string $view = 'filament.pages.kitchen-dashboard';
