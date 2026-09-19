@@ -4,7 +4,7 @@
         <div class="min-h-screen bg-slate-100 text-[17px] text-slate-900 dark:bg-[#10131a] dark:text-[#e0e2ec] transition-colors">
 
             {{-- ══════════════ HEADER POS ══════════════ --}}
-            <header class="sticky top-0 z-30 border-b border-slate-200 dark:border-[#272a31] bg-white/90 backdrop-blur-md dark:bg-[#1c2026]/90">
+            <header class="sticky top-0 z-10 border-b border-slate-200 dark:border-[#272a31] bg-white/90 backdrop-blur-md dark:bg-[#1c2026]/90">
                 <div class="mx-auto flex max-w-none items-center justify-between gap-4 px-4 py-4 sm:px-8">
                     {{-- Marca + estado --}}
                     <div class="flex min-w-0 items-center gap-3">
