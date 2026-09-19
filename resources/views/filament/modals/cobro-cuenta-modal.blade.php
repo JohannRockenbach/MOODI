@@ -2,7 +2,9 @@
     @if ($open)
         {{-- Overlay del modal de cobro (estilo Stitch del POS, tokens de crear-pedido).
              Include compartido: CrearPedido y TableMap usan el trait HasCobroRapido
-             (misma página, SIN dispatch entre componentes). --}}
+             (misma página, SIN dispatch entre componentes).
+             Dos modos SIEMPRE visibles (tabs táctiles): 'nuevo' (comanda en curso
+             del TPV) y 'existentes' (mesa con cuenta / pedido para llevar). --}}
         <div
             class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-[#0b0e15]/80"
             wire:click.self="cancelar"
@@ -42,7 +44,9 @@
                             <div class="shrink-0 rounded-xl bg-amber-500 px-5 py-3 text-2xl font-black text-white shadow-md shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]"><x-heroicon-o-banknotes class="h-8 w-8" /></div>
                             <div class="min-w-0">
                                 <div class="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">Cobrar Cuenta</div>
-                                <div class="mt-0.5 text-base text-slate-500 dark:text-[#c1c6d5]">Elegí la cuenta a cobrar</div>
+                                <div class="mt-0.5 text-base text-slate-500 dark:text-[#c1c6d5]">
+                                    {{ $cobroMode === 'nuevo' ? 'Sin comanda en curso — armá la comanda en el TPV' : 'Elegí la cuenta a cobrar' }}
+                                </div>
                             </div>
                         @endif
                     </div>
@@ -65,76 +69,131 @@
                     </div>
                 </div>
 
-                {{-- ══════════════ SELECTOR INTERNO DE CUENTAS (sin selección) ══════════════ --}}
+                {{-- ══════════════ TABS TÁCTILES: NUEVO PEDIDO / EXISTENTES ══════════════ --}}
+                <div class="grid grid-cols-2 gap-2.5 px-6 pt-4">
+                    <button
+                        wire:click="setCobroMode('nuevo')"
+                        class="flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-lg font-black uppercase tracking-wide transition-all active:scale-[0.98] {{ $cobroMode === 'nuevo' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#181c22] dark:text-[#c1c6d5] dark:hover:bg-[#272a31] dark:hover:text-[#e0e2ec]' }}"
+                    >
+                        <span class="text-xl leading-none">➕</span> Nuevo pedido
+                    </button>
+                    <button
+                        wire:click="setCobroMode('existentes')"
+                        class="flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-lg font-black uppercase tracking-wide transition-all active:scale-[0.98] {{ $cobroMode === 'existentes' ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#181c22] dark:text-[#c1c6d5] dark:hover:bg-[#272a31] dark:hover:text-[#e0e2ec]' }}"
+                    >
+                        <span class="text-xl leading-none">📋</span> Existentes
+                    </button>
+                </div>
+
+                {{-- ══════════════ CONTENIDO SEGÚN MODO Y SELECCIÓN ══════════════ --}}
                 @if (! $this->account)
-                    <div class="flex flex-col gap-5 overflow-y-auto px-6 py-6 [scrollbar-width:thin]">
-                        @if ($this->chargeableTables->isNotEmpty() || $this->takeawayOrders->isNotEmpty())
-                            <div class="flex items-center gap-2.5 rounded-xl bg-slate-100 px-4 py-3 dark:bg-[#181c22]">
-                                <x-heroicon-o-hand-raised class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
-                                <span class="text-base font-bold uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">Elegí la cuenta a cobrar</span>
-                            </div>
-
-                            @if ($this->chargeableTables->isNotEmpty())
+                    @if ($cobroMode === 'nuevo')
+                        {{-- ---- Pestaña NUEVO sin comanda en curso: aviso + Cerrar ---- --}}
+                        <div class="flex flex-col gap-5 overflow-y-auto px-6 py-6 [scrollbar-width:thin]">
+                            <div class="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-[#414753]">
+                                <span class="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 text-4xl">🧾</span>
                                 <div>
-                                    <h3 class="mb-3 flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
-                                        <x-heroicon-o-table-cells class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
-                                        Mesas con cuenta abierta
-                                        <span class="rounded-full bg-amber-500/10 px-3 py-1 font-mono text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">{{ $this->chargeableTables->count() }}</span>
-                                    </h3>
-                                    <div class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
-                                        @foreach ($this->chargeableTables as $table)
-                                            <button
-                                                wire:key="ct-{{ $table['id'] }}"
-                                                wire:click="selectAccountTable({{ $table['id'] }})"
-                                                class="flex flex-col items-center gap-2 rounded-2xl border-2 border-transparent bg-slate-50 px-3 py-6 text-center transition-all hover:border-amber-500 hover:bg-slate-100 active:scale-[0.97] dark:bg-[#181c22] dark:hover:border-[#fbbc48] dark:hover:bg-[#272a31]"
-                                            >
-                                                <span class="font-mono text-5xl font-black leading-none text-slate-900 dark:text-[#e0e2ec]">{{ $table['number'] }}</span>
-                                                <span class="text-lg font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ $table['zone_label'] }}</span>
-                                                <span class="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">
-                                                    <x-heroicon-o-shopping-bag class="h-4 w-4" />
-                                                    {{ $table['orders_count'] }} {{ $table['orders_count'] === 1 ? 'comanda' : 'comandas' }}
-                                                </span>
-                                            </button>
-                                        @endforeach
+                                    <p class="text-xl font-black text-slate-900 dark:text-[#e0e2ec]">No hay comanda para cobrar</p>
+                                    <p class="mt-1 text-base text-slate-500 dark:text-[#c1c6d5]">Armá la comanda en el TPV y volvé a abrir el cobro.</p>
+                                </div>
+                                <button
+                                    wire:click="cancelar"
+                                    class="mt-2 w-full max-w-xs rounded-xl bg-slate-100 py-4 text-lg font-bold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-[#272a31] dark:text-[#e0e2ec] dark:hover:bg-[#32353c]"
+                                >
+                                    Cerrar y armar comanda
+                                </button>
+                            </div>
+                        </div>
+                    @else
+                        {{-- ---- Pestaña EXISTENTES sin selección: lista de cuentas ---- --}}
+                        <div class="flex flex-col gap-5 overflow-y-auto px-6 py-6 [scrollbar-width:thin]">
+                            @if ($this->chargeableTables->isNotEmpty() || $this->takeawayOrders->isNotEmpty())
+                                <div class="flex items-center gap-2.5 rounded-xl bg-slate-100 px-4 py-3 dark:bg-[#181c22]">
+                                    <x-heroicon-o-hand-raised class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
+                                    <span class="text-base font-bold uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">Elegí la cuenta a cobrar</span>
+                                </div>
+
+                                @if ($this->chargeableTables->isNotEmpty())
+                                    <div>
+                                        <h3 class="mb-3 flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
+                                            <x-heroicon-o-table-cells class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
+                                            Mesas con cuenta abierta
+                                            <span class="rounded-full bg-amber-500/10 px-3 py-1 font-mono text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">{{ $this->chargeableTables->count() }}</span>
+                                        </h3>
+                                        <div class="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+                                            @foreach ($this->chargeableTables as $table)
+                                                <button
+                                                    wire:key="ct-{{ $table['id'] }}"
+                                                    wire:click="selectAccountTable({{ $table['id'] }})"
+                                                    class="flex flex-col items-center gap-2 rounded-2xl border-2 border-transparent bg-slate-50 px-3 py-6 text-center transition-all hover:border-amber-500 hover:bg-slate-100 active:scale-[0.97] dark:bg-[#181c22] dark:hover:border-[#fbbc48] dark:hover:bg-[#272a31]"
+                                                >
+                                                    <span class="font-mono text-5xl font-black leading-none text-slate-900 dark:text-[#e0e2ec]">{{ $table['number'] }}</span>
+                                                    <span class="text-lg font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ $table['zone_label'] }}</span>
+                                                    <span class="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">
+                                                        <x-heroicon-o-shopping-bag class="h-4 w-4" />
+                                                        {{ $table['orders_count'] }} {{ $table['orders_count'] === 1 ? 'comanda' : 'comandas' }}
+                                                    </span>
+                                                </button>
+                                            @endforeach
+                                        </div>
                                     </div>
+                                @endif
+
+                                @if ($this->takeawayOrders->isNotEmpty())
+                                    <div>
+                                        <h3 class="mb-3 flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
+                                            <span class="text-2xl leading-none">🥡</span> Pedidos para llevar
+                                            <span class="rounded-full bg-amber-500/10 px-3 py-1 font-mono text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">{{ $this->takeawayOrders->count() }} {{ $this->takeawayOrders->count() === 1 ? 'pendiente' : 'pendientes' }}</span>
+                                        </h3>
+                                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                            @foreach ($this->takeawayOrders as $order)
+                                                <button
+                                                    wire:key="tk-{{ $order['id'] }}"
+                                                    wire:click="selectAccountOrder({{ $order['id'] }})"
+                                                    class="flex items-center gap-3 rounded-2xl border-2 border-transparent bg-slate-50 p-4 text-left transition-all hover:border-amber-500 hover:bg-slate-100 active:scale-[0.97] dark:bg-[#181c22] dark:hover:border-[#fbbc48] dark:hover:bg-[#272a31]"
+                                                >
+                                                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 font-mono text-xl font-black text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">#{{ $order['id'] }}</span>
+                                                    <span class="min-w-0 flex-grow">
+                                                        <span class="block truncate text-lg font-bold text-slate-900 dark:text-[#e0e2ec]">Mozo: {{ $order['waiter_name'] ?? '—' }}</span>
+                                                        <span class="mt-0.5 block text-sm text-slate-500 dark:text-[#c1c6d5]">{{ $order['items_count'] }} {{ $order['items_count'] === 1 ? 'ítem' : 'ítems' }} · {{ $order['created_time'] }} hs</span>
+                                                    </span>
+                                                    <span class="shrink-0 font-mono text-xl font-black text-amber-600 dark:text-[#fbbc48]">${{ $this->money($order['subtotal']) }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <button
+                                    wire:click="setCobroMode('nuevo')"
+                                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-500/60 py-4 text-lg font-bold text-amber-700 transition-colors hover:bg-amber-500/10 dark:border-[#fbbc48]/50 dark:text-[#fbbc48]"
+                                >
+                                    <x-heroicon-o-plus class="h-6 w-6" />
+                                    Armar pedido nuevo
+                                </button>
+                            @else
+                                <div class="rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-[#414753]">
+                                    <x-heroicon-o-check-circle class="mx-auto mb-3 h-14 w-14 text-emerald-500" />
+                                    <p class="text-xl font-bold text-slate-700 dark:text-[#e0e2ec]">No hay cuentas pendientes</p>
+                                    <p class="mt-1 text-base text-slate-500 dark:text-[#c1c6d5]">Todas las cuentas están cobradas o no hay comandas activas.</p>
                                 </div>
                             @endif
-
-                            @if ($this->takeawayOrders->isNotEmpty())
-                                <div>
-                                    <h3 class="mb-3 flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
-                                        <span class="text-2xl leading-none">🥡</span> Pedidos para llevar
-                                        <span class="rounded-full bg-amber-500/10 px-3 py-1 font-mono text-base font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">{{ $this->takeawayOrders->count() }} {{ $this->takeawayOrders->count() === 1 ? 'pendiente' : 'pendientes' }}</span>
-                                    </h3>
-                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                        @foreach ($this->takeawayOrders as $order)
-                                            <button
-                                                wire:key="tk-{{ $order['id'] }}"
-                                                wire:click="selectAccountOrder({{ $order['id'] }})"
-                                                class="flex items-center gap-3 rounded-2xl border-2 border-transparent bg-slate-50 p-4 text-left transition-all hover:border-amber-500 hover:bg-slate-100 active:scale-[0.97] dark:bg-[#181c22] dark:hover:border-[#fbbc48] dark:hover:bg-[#272a31]"
-                                            >
-                                                <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 font-mono text-xl font-black text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">#{{ $order['id'] }}</span>
-                                                <span class="min-w-0 flex-grow">
-                                                    <span class="block truncate text-lg font-bold text-slate-900 dark:text-[#e0e2ec]">Mozo: {{ $order['waiter_name'] ?? '—' }}</span>
-                                                    <span class="mt-0.5 block text-sm text-slate-500 dark:text-[#c1c6d5]">{{ $order['items_count'] }} {{ $order['items_count'] === 1 ? 'ítem' : 'ítems' }} · {{ $order['created_time'] }} hs</span>
-                                                </span>
-                                                <span class="shrink-0 font-mono text-xl font-black text-amber-600 dark:text-[#fbbc48]">${{ $this->money($order['subtotal']) }}</span>
-                                            </button>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        @else
-                            <div class="rounded-2xl border border-dashed border-slate-300 py-12 text-center dark:border-[#414753]">
-                                <x-heroicon-o-check-circle class="mx-auto mb-3 h-14 w-14 text-emerald-500" />
-                                <p class="text-xl font-bold text-slate-700 dark:text-[#e0e2ec]">No hay cuentas pendientes</p>
-                                <p class="mt-1 text-base text-slate-500 dark:text-[#c1c6d5]">Todas las cuentas están cobradas o no hay comandas activas.</p>
-                            </div>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
                 @else
                     {{-- ══════════════ CUENTA: DETALLE + PAGO (todo dentro del modal) ══════════════ --}}
                     <div class="flex min-h-0 flex-col gap-5 overflow-y-auto px-6 py-6 [scrollbar-width:thin]">
+
+                        @if ($cobroMode === 'existentes')
+                            {{-- Volver a la lista de cuentas existentes --}}
+                            <button
+                                wire:click="selectAccountTable(null)"
+                                class="flex items-center justify-center gap-2 rounded-xl bg-slate-100 py-3 text-base font-bold text-slate-700 transition-colors hover:bg-slate-200 dark:bg-[#272a31] dark:text-[#e0e2ec] dark:hover:bg-[#32353c]"
+                            >
+                                <x-heroicon-o-arrow-left class="h-5 w-5" />
+                                Cambiar
+                            </button>
+                        @endif
 
                         {{-- ─────────── BLOQUES DE ÍTEMS (Comanda en curso / Comandas enviadas) ─────────── --}}
                         <div class="flex max-h-[38vh] flex-col gap-4 overflow-y-auto pr-1 [scrollbar-width:thin]">

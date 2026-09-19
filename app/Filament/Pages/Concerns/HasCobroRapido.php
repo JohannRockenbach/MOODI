@@ -40,6 +40,15 @@ trait HasCobroRapido
 {
     public bool $open = false;
 
+    /**
+     * Modo del modal de cobro (tabs táctiles superiores):
+     * - 'nuevo': cobra la comanda en curso (draft del TPV).
+     * - 'existentes': cobra una mesa con cuenta o un pedido para llevar ya
+     *   creado (lista visible cuando no hay selección).
+     * El draft del TPV SOLO se cobra en modo 'nuevo'.
+     */
+    public string $cobroMode = 'existentes';
+
     // Mesa a cobrar (comandas enviadas de la mesa).
     public ?int $selectedTableId = null;
 
@@ -103,12 +112,36 @@ trait HasCobroRapido
         $type = $orderType ?? $this->pageOrderType();
         $this->orderType = in_array($type, ['salon', 'para_llevar'], true) ? $type : 'salon';
 
+        // Modo inicial del modal:
+        // - draft no vacío → 'nuevo' (cobrar la comanda en curso del TPV).
+        // - orderId (takeaway) / tableId sin draft / sin contexto → 'existentes'.
+        $this->cobroMode = ! empty($this->draft) ? 'nuevo' : 'existentes';
+
         // Invalidar computeds ANTES de re-inicializar el estado de pago (que
         // lee el total FRESCO de la cuenta recién armada).
         unset($this->account, $this->chargeableTables, $this->takeawayOrders);
 
         $this->resetCobroState();
         $this->open = true;
+    }
+
+    /**
+     * Cambiar la pestaña del modal (Nuevo pedido / Existentes). Valida el
+     * valor y re-invalida los computeds dependientes para que la cuenta y el
+     * total se recalculen contra el modo activo.
+     */
+    public function setCobroMode(string $mode): void
+    {
+        if (! in_array($mode, ['nuevo', 'existentes'], true)) {
+            return;
+        }
+
+        $this->cobroMode = $mode;
+
+        unset($this->account, $this->chargeableTables, $this->takeawayOrders);
+
+        // Re-sincronizar la fila única del split con el total fresco del modo.
+        $this->syncSinglePaymentRow();
     }
 
     /**
@@ -133,6 +166,9 @@ trait HasCobroRapido
      */
     public function selectAccountTable(?int $tableId): void
     {
+        // Elegir una cuenta existente siempre vive en la pestaña Existentes.
+        $this->cobroMode = 'existentes';
+
         $this->selectedTableId = $tableId;
         $this->selectedOrderId = null;
         unset($this->account);
@@ -141,6 +177,9 @@ trait HasCobroRapido
 
     public function selectAccountOrder(?int $orderId): void
     {
+        // Elegir una cuenta existente siempre vive en la pestaña Existentes.
+        $this->cobroMode = 'existentes';
+
         $this->selectedOrderId = $orderId;
         $this->selectedTableId = null;
         unset($this->account);
@@ -236,18 +275,28 @@ trait HasCobroRapido
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * La CUENTA a cobrar. Prioridad:
+     * La CUENTA a cobrar según el modo activo del modal:
+     *
+     * Modo 'nuevo' (comanda en curso del TPV):
      * 1. Comanda en curso (draft) → bloque "Comanda en curso" + (si mesa) las
      *    comandas enviadas de la mesa ("Comandas enviadas").
-     * 2. selectedOrderId → pedido para llevar ya creado.
-     * 3. selectedTableId sin draft → comandas enviadas de la mesa.
-     * 4. Nada → null (el blade muestra el selector interno de cuentas).
+     * 2. Sin draft → null (el blade muestra el aviso de armar la comanda).
+     *
+     * Modo 'existentes' (mesa con cuenta / pedido para llevar ya creado):
+     * el draft del TPV se IGNORA por completo aunque venga en el payload:
+     * 1. selectedOrderId → pedido para llevar ya creado.
+     * 2. selectedTableId → comandas enviadas de la mesa.
+     * 3. Nada → null (el blade muestra el selector interno de cuentas).
      */
     #[Computed]
     public function account(): ?array
     {
-        if (! empty($this->draft)) {
-            return $this->buildDraftAccount();
+        if ($this->cobroMode === 'nuevo') {
+            if (! empty($this->draft)) {
+                return $this->buildDraftAccount();
+            }
+
+            return null;
         }
 
         if ($this->selectedOrderId) {
@@ -721,7 +770,13 @@ trait HasCobroRapido
             403
         );
 
-        if ($this->selectedTableId === null && $this->selectedOrderId === null && empty($this->draft)) {
+        // Defensa: sin cuenta cobrable en el modo activo. En 'existentes' el
+        // draft del TPV se IGNORA (solo mesa seleccionada o pedido para
+        // llevar); en 'nuevo' el draft es la cuenta.
+        $hasChargeableSelection = $this->selectedTableId !== null || $this->selectedOrderId !== null;
+        $hasDraftToCharge = $this->cobroMode === 'nuevo' && ! empty($this->draft);
+
+        if (! $hasChargeableSelection && ! $hasDraftToCharge) {
             Notification::make()
                 ->danger()
                 ->title('Error')
@@ -828,7 +883,9 @@ trait HasCobroRapido
 
                 // 2) Comanda en curso (draft) → crear el Order DENTRO de la
                 //    transacción (re-validando cada ítem contra la DB).
-                if (! empty($this->draft)) {
+                //    SOLO en modo 'nuevo': en 'existentes' el draft se ignora
+                //    aunque venga en el payload (el mozo eligió otra cuenta).
+                if ($this->cobroMode === 'nuevo' && ! empty($this->draft)) {
                     $draftOrder = $this->createOrderFromDraft();
                     $ordersToCharge->push($draftOrder);
                     $draftOrderIds[] = $draftOrder->id;
@@ -1271,6 +1328,7 @@ trait HasCobroRapido
     private function resetPanel(): void
     {
         $this->open = false;
+        $this->cobroMode = 'existentes';
         $this->selectedTableId = null;
         $this->selectedOrderId = null;
         $this->draft = [];
