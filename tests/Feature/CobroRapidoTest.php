@@ -203,6 +203,7 @@ it('cobra mesa con comanda enviada + draft (bug del dueño): draft pending a coc
     $account = $component->instance()->account;
 
     expect($component->get('open'))->toBeTrue()
+        ->and($component->get('cobroMode'))->toBe('nuevo') // draft presente → pestaña Nuevo
         ->and($account['has_draft'])->toBeTrue()
         ->and($account['orders_count'])->toBe(2)
         ->and($account['items_count'])->toBe(4) // draft 2 + enviada 2
@@ -777,4 +778,153 @@ it('no cobra con SPLIT inválido (suma de métodos != total)', function () {
 
     expect(Sale::count())->toBe(0)
         ->and($table->fresh()->status)->toBe(Table::STATUS_OCCUPIED);
+});
+
+// ─────────────────────────────────────────────────────────────
+// 8) MODOS DEL MODAL: NUEVO / EXISTENTES (decisión del dueño)
+// ─────────────────────────────────────────────────────────────
+
+// 8a) Modo inicial con draft → 'nuevo' y el cobro crea el Order del draft
+//     (el happy path 1 ya lo cubre y ahora también valida cobroMode).
+
+it('abrir sin contexto (F2 / botón COBRAR con TPV vacío) inicia en modos EXISTENTES con la lista disponible', function () {
+    $mozo = makeCobroUser('Mozo');
+    makeOpenCaja($mozo);
+
+    // Dos cuentas pendientes reales: una mesa ocupada + un takeaway sin venta.
+    $table = makeCobroTable(['number' => 91]);
+    $coca = makeDirectPosProduct('Coca 500', 500.0);
+    makeOrderOnTable($table, $mozo, $coca, 2, 500.0); // 1000
+    $takeaway = makeTakeawayOrder($mozo, $coca, 1, 500.0); // 500
+
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->call('abrirCobro'); // sin mesa, sin pedido, sin draft
+
+    expect($component->get('open'))->toBeTrue()
+        ->and($component->get('cobroMode'))->toBe('existentes')
+        ->and($component->instance()->account)->toBeNull() // la lista se muestra
+        ->and($component->instance()->chargeableTables->pluck('id'))->toContain($table->id)
+        ->and($component->instance()->takeawayOrders->pluck('id'))->toContain($takeaway->id);
+
+    // F2 (solicitar-cobro) sin contexto: mismo modo inicial.
+    $component->dispatch('solicitar-cobro');
+
+    expect($component->get('cobroMode'))->toBe('existentes')
+        ->and($component->instance()->account)->toBeNull();
+});
+
+// 8b) Los MODO EXISTENTES IGNORA el draft del payload: al cobrar una mesa con
+//     comanda enviada NO se crea ningún Order nuevo del draft (solo la Sale de
+//     la comanda enviada → completed) aunque el payload trajera el draft.
+
+it('modo EXISTENTES ignora el draft del payload: cobra solo la comanda enviada y NO crea un Order nuevo', function () {
+    $mozo = makeCobroUser('Mozo');
+    $caja = makeOpenCaja($mozo);
+    $table = makeCobroTable(['number' => 92]);
+    $coca = makeDirectPosProduct('Coca 500', 500.0, stock: 50);
+    $orderSent = makeOrderOnTable($table, $mozo, $coca, 2, 500.0); // 1000 enviada
+
+    // El TPV tiene un draft EN EL CARRITO (viene en el payload al abrir).
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->set('selectedTableId', $table->id)
+        ->call('addItem', $coca->id)
+        ->call('abrirCobro');
+
+    // Abre en modo 'nuevo' (hay draft); el mozo cambia a Existentes.
+    expect($component->get('cobroMode'))->toBe('nuevo');
+
+    $component->call('setCobroMode', 'existentes');
+
+    // La cuenta IGNORA el draft: solo la comanda enviada de la mesa.
+    expect($component->get('cobroMode'))->toBe('existentes')
+        ->and($component->get('draft'))->not->toBe([]) // el draft sigue en el payload
+        ->and($component->instance()->account['has_draft'])->toBeFalse()
+        ->and($component->instance()->account['orders_count'])->toBe(1)
+        ->and($component->instance()->account['items_count'])->toBe(2)
+        ->and($component->instance()->accountSubtotal())->toBe(1000.0);
+
+    $component->set('payments.0.method', 'card')->call('cobrar')->assertHasNoErrors();
+
+    // NO se creó ningún Order del draft: solo existe la comanda enviada, cobrada.
+    expect(Order::count())->toBe(1)
+        ->and($orderSent->fresh()->status)->toBe('completed')
+        ->and(Sale::count())->toBe(1)
+        ->and((float) Sale::first()->total_amount)->toBe(1000.0)
+        ->and(Sale::first()->caja_id)->toBe($caja->id)
+        ->and($table->fresh()->status)->toBe(Table::STATUS_AVAILABLE);
+});
+
+// 8c) Alternar tabs no rompe la cuenta ni el estado de pago (computeds frescas).
+
+it('alternar entre EXISTENTES y NUEVO mantiene la cuenta y el split frescos', function () {
+    $mozo = makeCobroUser('Mozo');
+    makeOpenCaja($mozo);
+    $table = makeCobroTable(['number' => 93]);
+    $coca = makeDirectPosProduct('Coca 500', 500.0, stock: 50);
+    makeOrderOnTable($table, $mozo, $coca, 2, 500.0); // 1000 enviada
+
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->set('selectedTableId', $table->id)
+        ->call('addItem', $coca->id) // draft 500
+        ->call('abrirCobro');
+
+    // Nuevo: cuenta = draft + enviada = 1500.
+    expect($component->get('cobroMode'))->toBe('nuevo')
+        ->and($component->instance()->accountSubtotal())->toBe(1500.0)
+        ->and($component->get('payments'))->toBe([['method' => 'cash', 'amount' => '1500']]);
+
+    // → Existentes: el draft sale de la cuenta (solo enviada = 1000), split re-sincronizado.
+    $component->call('setCobroMode', 'existentes')
+        ->set('payments.0.method', 'card'); // sin efectivo → canCobrar sin montoRecibido
+
+    expect($component->get('cobroMode'))->toBe('existentes')
+        ->and($component->instance()->accountSubtotal())->toBe(1000.0)
+        ->and($component->get('payments'))->toBe([['method' => 'card', 'amount' => '1000']])
+        ->and($component->instance()->canCobrar())->toBeTrue();
+
+    // → Nuevo otra vez: el draft vuelve a la cuenta (1500), split fresco de nuevo
+    //   (el método elegido se conserva, el monto se re-sincroniza).
+    $component->call('setCobroMode', 'nuevo');
+
+    expect($component->get('cobroMode'))->toBe('nuevo')
+        ->and($component->instance()->accountSubtotal())->toBe(1500.0)
+        ->and($component->get('payments'))->toBe([['method' => 'card', 'amount' => '1500']])
+        ->and($component->instance()->canCobrar())->toBeTrue();
+
+    // El cobro en modo 'nuevo' crea el Order del draft (la lógica no se rompió).
+    $component->set('payments.0.method', 'card')->call('cobrar')->assertHasNoErrors();
+
+    expect(Order::count())->toBe(2) // enviada + draft creado
+        ->and(Sale::count())->toBe(2);
+});
+
+// 8d) Modo EXISTENTES con selección: al elegir cuenta el modo sigue en
+//     'existentes' y el draft del payload NUNCA se cuelga de la cuenta.
+
+it('seleccionar una cuenta existente mantiene el modo EXISTENTES y no arrastra el draft', function () {
+    $mozo = makeCobroUser('Mozo');
+    makeOpenCaja($mozo);
+    $table = makeCobroTable(['number' => 94]);
+    $coca = makeDirectPosProduct('Coca 500', 500.0, stock: 50);
+    makeOrderOnTable($table, $mozo, $coca, 2, 500.0); // 1000
+
+    $component = Livewire::actingAs($mozo)
+        ->test(CrearPedido::class)
+        ->set('selectedTableId', $table->id)
+        ->call('addItem', $coca->id) // draft 500 en el carrito
+        ->call('abrirCobro')
+        ->call('setCobroMode', 'existentes')
+        ->call('selectAccountTable', $table->id);
+
+    expect($component->get('cobroMode'))->toBe('existentes')
+        ->and($component->instance()->account['has_draft'])->toBeFalse()
+        ->and($component->instance()->accountSubtotal())->toBe(1000.0);
+
+    $component->set('payments.0.method', 'card')->call('cobrar')->assertHasNoErrors();
+
+    expect(Order::count())->toBe(1) // la enviada: el draft NO se creó
+        ->and(Sale::count())->toBe(1);
 });
