@@ -43,10 +43,12 @@ class StatsOverview extends BaseWidget
 
         // Reservas pendientes
         $reservasPendientes = Reservation::where('status', 'pending')
+            ->where('restaurant_id', 1)
             ->count();
 
         // Mesas ocupadas
         $mesasOcupadas = Table::where('status', 'occupied')
+            ->where('restaurant_id', 1)
             ->count();
 
         return [

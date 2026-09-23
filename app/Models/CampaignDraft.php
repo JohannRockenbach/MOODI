@@ -17,11 +17,16 @@ class CampaignDraft extends Model
         'discount_value',
         'coupon_code',
         'valid_until',
+        'segment',
+        'restaurant_id',
+        'scheduled_date',
+        'status',
     ];
 
     protected $casts = [
         'valid_until' => 'date',
         'discount_value' => 'decimal:2',
+        'scheduled_date' => 'datetime',
     ];
 
     public function user(): BelongsTo

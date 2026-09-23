@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Forms\LoginForm;
+use App\Support\DisplayText;
 use Illuminate\Support\Facades\Session;
 
 use function Livewire\Volt\form;
@@ -12,6 +13,8 @@ form(LoginForm::class);
 
 $login = function () {
     $this->validate();
+
+    $this->form->email = mb_strtolower(trim(DisplayText::plain($this->form->email)));
 
     $this->form->authenticate();
 

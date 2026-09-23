@@ -24,6 +24,7 @@ class EventServiceProvider extends ServiceProvider
     {
         \App\Models\Order::observe(\App\Observers\OrderObserver::class);
         \App\Models\Reservation::observe(\App\Observers\ReservationObserver::class);
+        \App\Models\Cliente::observe(\App\Observers\ClienteObserver::class);
     }
 
     /**

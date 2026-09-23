@@ -39,6 +39,7 @@ class Product extends Model
         return [
             'price' => 'decimal:2', // Siempre tratar el precio como un decimal con 2 dígitos.
             'is_available' => 'boolean', // Tratar como verdadero/falso.
+            'is_temporal' => 'boolean', // Producto temporal (aparece/desaparece según lote crítico).
             'preparation_time_minutes' => 'integer', // Tiempo de preparación en minutos.
         ];
     }
@@ -112,8 +113,9 @@ class Product extends Model
                 }
 
                 // Si el producto SÍ tiene receta (ej: Hamburguesa, producto elaborado)
-                // Cargar la receta con sus ingredientes y las cantidades requeridas
-                $recipe = $this->recipe()->with('ingredients')->first();
+                // Cargar la receta con sus ingredientes y los LOTES (eager-load para
+                // evitar N+1 por ingrediente).
+                $recipe = $this->recipe()->with('ingredients.batches')->first();
 
                 // Si no existe la receta o no tiene ingredientes, retornar 0
                 if (!$recipe || $recipe->ingredients->isEmpty()) {
@@ -126,8 +128,8 @@ class Product extends Model
 
                 foreach ($recipe->ingredients as $ingredient) {
                     $requiredAmount = $ingredient->pivot->required_amount;
-                    // ACTUALIZADO: Usar el nuevo sistema de lotes
-                    $availableStock = $ingredient->batches()->sum('quantity');
+                    // Stock disponible: lotes NO vencidos (los vencidos NO son stock sano).
+                    $availableStock = $ingredient->availableStock();
 
                     // Si el ingrediente no tiene stock o la cantidad requerida es 0, no se puede hacer
                     if ($requiredAmount <= 0) {
@@ -154,9 +156,71 @@ class Product extends Model
 
     /**
      * Relación con el ingrediente crítico (para productos temporales anti-desperdicio)
+     *
+     * NOTA: a pesar del nombre, apunta a un IngredientBatch (lote), no a un
+     * Ingredient. Es el lote del ingrediente que está por vencer y que este
+     * producto temporal ayuda a consumir.
      */
     public function criticalIngredient(): BelongsTo
     {
         return $this->belongsTo(IngredientBatch::class, 'critical_ingredient_id');
+    }
+
+    /**
+     * ¿Debe estar disponible este producto temporal según su lote crítico?
+     *
+     * Regla de aparición/desaparición:
+     * - APARECE (disponible) cuando el lote crítico sigue sano: no vencido y
+     *   con stock remanente.
+     * - DESAPARECE (no disponible) cuando el lote crítico venció o se agotó.
+     * - Sin lote crítico vinculado: queda disponible (comportamiento manual).
+     *
+     * Los productos NO temporales siempre devuelven true (su disponibilidad
+     * se gestiona manualmente con is_available).
+     */
+    public function shouldBeAvailable(): bool
+    {
+        if (! $this->is_temporal) {
+            return true;
+        }
+
+        $batch = $this->criticalIngredient;
+
+        if (! $batch) {
+            return true;
+        }
+
+        // Lote agotado → el producto temporal desaparece.
+        if ((float) $batch->quantity <= 0) {
+            return false;
+        }
+
+        // Lote vencido → el producto temporal desaparece.
+        if ($batch->expiration_date !== null && $batch->expiration_date->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Sincronizar la disponibilidad del producto temporal con su lote crítico.
+     * Devuelve true si cambió el estado, false si no hizo falta tocar nada.
+     */
+    public function syncTemporalAvailability(): bool
+    {
+        if (! $this->is_temporal) {
+            return false;
+        }
+
+        $shouldBeAvailable = $this->shouldBeAvailable();
+
+        if ((bool) $this->is_available === $shouldBeAvailable) {
+            return false;
+        }
+
+        $this->forceFill(['is_available' => $shouldBeAvailable])->save();
+
+        return true;
     }
 }

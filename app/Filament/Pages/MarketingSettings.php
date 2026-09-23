@@ -26,6 +26,14 @@ class MarketingSettings extends Page implements Forms\Contracts\HasForms
 
     protected static string $view = 'filament.pages.marketing-settings';
 
+    public static function canAccess(): bool
+    {
+        // Configuración de automatizaciones: solo super_admin.
+        $user = auth()->user();
+
+        return $user !== null && $user->hasRole('super_admin');
+    }
+
     public ?array $data = [];
 
     public function mount(): void

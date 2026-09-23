@@ -5,9 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Resources\OrderResource\RelationManagers;
 use App\Models\Order;
-use App\Models\Restaurant;
 use App\Models\Table as TableModel;
-use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,7 +13,6 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
-use function __;
 
 class OrderResource extends Resource
 {
@@ -23,12 +20,38 @@ class OrderResource extends Resource
 
     // Use a heroicon that is available in the project's icon set to avoid Blade Icons errors
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
     protected static ?string $navigationGroup = 'Operaciones del Salón';
+
     protected static ?int $navigationSort = 2;
 
     protected static ?string $modelLabel = 'Pedido';
+
     protected static ?string $pluralModelLabel = 'Pedidos';
+
     protected static ?string $navigationLabel = 'Pedidos';
+
+    /**
+     * Items de navegación: "Pedidos" (listado) + "Cocina" (KDS).
+     * La cocina era solo accesible por URL directa; ahora aparece en el menú
+     * para super_admin y Cocinero.
+     */
+    public static function getNavigationItems(): array
+    {
+        $items = parent::getNavigationItems();
+
+        $user = Auth::user();
+
+        if ($user && $user->hasAnyRole(['super_admin', 'Cocinero'])) {
+            $items[] = \Filament\Navigation\NavigationItem::make('Cocina')
+                ->icon('heroicon-o-fire')
+                ->group('Operaciones del Salón')
+                ->sort(1)
+                ->url(static::getUrl('kitchen'));
+        }
+
+        return $items;
+    }
 
     // Optimización N+1: Eager loading de relaciones
     public static function getEloquentQuery(): Builder
@@ -57,6 +80,10 @@ class OrderResource extends Resource
             Forms\Components\Hidden::make('restaurant_id')
                 ->default(1),
 
+            // Hotfix: pedidos nuevos siempre inician sin descuento de stock
+            Forms\Components\Hidden::make('stock_deducted')
+                ->default(false),
+
             Forms\Components\Section::make('Información del Pedido')
                 ->schema([
                     // Cliente (Opcional - Relación con Clientes)
@@ -71,12 +98,12 @@ class OrderResource extends Resource
                                 ->label('Nombre')
                                 ->required()
                                 ->maxLength(255),
-                            
+
                             Forms\Components\TextInput::make('email')
                                 ->label('Email')
                                 ->email()
                                 ->maxLength(255),
-                            
+
                             Forms\Components\TextInput::make('phone')
                                 ->label('Teléfono')
                                 ->tel()
@@ -88,7 +115,7 @@ class OrderResource extends Resource
                     // ESTRATEGIA: Cuando viene del mapa, NO mostrar Select editables
                     // Usamos propiedades de Livewire que persisten durante toda la sesión
                     // ==========================================
-                    
+
                     // TIPO: Select editable (solo cuando NO viene del mapa)
                     Forms\Components\Select::make('type')
                         ->label('Tipo de Pedido')
@@ -104,13 +131,14 @@ class OrderResource extends Resource
                         ->visible(function ($operation, $livewire) {
                             // Solo visible si NO es create O NO viene del mapa
                             if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
-                                return !$livewire->isFromTableMap();
+                                return ! $livewire->isFromTableMap();
                             }
+
                             return $operation !== 'create'; // En edit, siempre visible
                         })
                         ->helperText('Selecciona el tipo de pedido')
                         ->columnSpan(1),
-                    
+
                     // TIPO: Campo bloqueado visual (solo cuando viene del mapa en CREATE)
                     Forms\Components\Placeholder::make('type_locked_display')
                         ->label('Tipo de Pedido')
@@ -121,10 +149,11 @@ class OrderResource extends Resource
                             if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
                                 return $livewire->isFromTableMap();
                             }
+
                             return false;
                         })
                         ->columnSpan(1),
-                    
+
                     // TIPO: Hidden field para enviar el valor al backend (solo en CREATE desde mapa)
                     Forms\Components\Hidden::make('_locked_type')
                         ->default('salon')
@@ -132,6 +161,7 @@ class OrderResource extends Resource
                             if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
                                 return $livewire->isFromTableMap();
                             }
+
                             return false;
                         }),
 
@@ -139,28 +169,28 @@ class OrderResource extends Resource
                     Forms\Components\Select::make('table_id')
                         ->label('Mesa')
                         ->relationship('table', 'number')
-                        ->options(fn() => TableModel::where('restaurant_id', 1)->pluck('number', 'id'))
+                        ->options(fn () => TableModel::where('restaurant_id', 1)->pluck('number', 'id'))
                         ->searchable()
                         ->required(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'salon')
                         ->visible(function (Forms\Get $get, $operation, $livewire): bool {
                             $type = $get('type') ?? $get('_locked_type');
-                            
+
                             // Si no es salón, no mostrar
                             if ($type !== 'salon') {
                                 return false;
                             }
-                            
+
                             // En create o edit, solo mostrar si NO viene del mapa
                             if (method_exists($livewire, 'isFromTableMap')) {
-                                return !$livewire->isFromTableMap();
+                                return ! $livewire->isFromTableMap();
                             }
-                            
+
                             // Por defecto visible
                             return true;
                         })
                         ->helperText('Selecciona la mesa donde se realiza el pedido')
                         ->columnSpan(1),
-                    
+
                     // MESA: Campo bloqueado visual (cuando viene del mapa en CREATE o EDIT)
                     Forms\Components\Placeholder::make('table_locked_display')
                         ->label('Mesa')
@@ -172,9 +202,11 @@ class OrderResource extends Resource
                                     if ($table) {
                                         return "🔒 Mesa #{$table->number} - {$table->location}";
                                     }
+
                                     return "🔒 Mesa #{$tableId}";
                                 }
                             }
+
                             return 'N/A';
                         })
                         ->visible(function ($operation, $livewire) {
@@ -182,22 +214,25 @@ class OrderResource extends Resource
                             if (method_exists($livewire, 'isFromTableMap')) {
                                 return $livewire->isFromTableMap();
                             }
+
                             return false;
                         })
                         ->columnSpan(1),
-                    
+
                     // MESA: Hidden field con nombre único para enviar al backend
                     Forms\Components\Hidden::make('_locked_table_id')
                         ->default(function ($livewire) {
                             if (method_exists($livewire, 'getLockedTableId')) {
                                 return $livewire->getLockedTableId();
                             }
+
                             return null;
                         })
                         ->visible(function ($operation, $livewire) {
                             if ($operation === 'create' && method_exists($livewire, 'isFromTableMap')) {
                                 return $livewire->isFromTableMap();
                             }
+
                             return false;
                         }),
 
@@ -205,11 +240,9 @@ class OrderResource extends Resource
                     Forms\Components\TextInput::make('delivery_address')
                         ->label('Dirección de Entrega')
                         ->placeholder('Ej: Calle 123, Barrio X')
-                        ->required(fn (Forms\Get $get): bool => 
-                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        ->required(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'delivery'
                         )
-                        ->visible(fn (Forms\Get $get): bool => 
-                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        ->visible(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'delivery'
                         )
                         ->helperText('Dirección completa para el delivery')
                         ->columnSpan(1),
@@ -219,11 +252,9 @@ class OrderResource extends Resource
                         ->label('Teléfono')
                         ->placeholder('Ej: 0351-1234567')
                         ->tel()
-                        ->required(fn (Forms\Get $get): bool => 
-                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        ->required(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'delivery'
                         )
-                        ->visible(fn (Forms\Get $get): bool => 
-                            ($get('type') ?? $get('_locked_type')) === 'delivery'
+                        ->visible(fn (Forms\Get $get): bool => ($get('type') ?? $get('_locked_type')) === 'delivery'
                         )
                         ->helperText('Teléfono de contacto para el delivery')
                         ->columnSpan(1),
@@ -232,11 +263,9 @@ class OrderResource extends Resource
                     Forms\Components\TextInput::make('customer_name')
                         ->label('Nombre del Cliente')
                         ->placeholder('Ej: Juan Pérez')
-                        ->required(fn (Forms\Get $get): bool => 
-                            in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
+                        ->required(fn (Forms\Get $get): bool => in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
                         )
-                        ->visible(fn (Forms\Get $get): bool => 
-                            in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
+                        ->visible(fn (Forms\Get $get): bool => in_array(($get('type') ?? $get('_locked_type')), ['delivery', 'para_llevar'])
                         )
                         ->helperText('Nombre de quien retira/recibe el pedido')
                         ->columnSpan(1),
@@ -249,13 +278,13 @@ class OrderResource extends Resource
                         ->preload()
                         ->required()
                         ->afterStateHydrated(function ($state, $set) {
-                            if (Auth::check() && !$state) {
+                            if (Auth::check() && ! $state) {
                                 $set('waiter_id', Auth::id());
                             }
                         })
                         ->disabled(fn ($operation) => $operation === 'create' && Auth::check())
                         ->dehydrated()
-                        ->helperText(fn ($operation) => $operation === 'create' && Auth::check() ? '🔒 Auto-asignado: ' . Auth::user()->name : 'Mozo que tomó el pedido')
+                        ->helperText(fn ($operation) => $operation === 'create' && Auth::check() ? '🔒 Auto-asignado: '.Auth::user()->name : 'Mozo que tomó el pedido')
                         ->columnSpan(1),
 
                     // Estado del Pedido
@@ -293,13 +322,13 @@ class OrderResource extends Resource
                             // Calcular total automáticamente
                             $total = 0;
                             $orderProducts = $get('orderProducts') ?? [];
-                            
+
                             foreach ($orderProducts as $item) {
                                 if (isset($item['price']) && isset($item['quantity'])) {
-                                    $total += (float)$item['price'] * (int)$item['quantity'];
+                                    $total += (float) $item['price'] * (int) $item['quantity'];
                                 }
                             }
-                            
+
                             $set('total_display', number_format($total, 2, ',', '.'));
                         })
                         ->schema([
@@ -323,18 +352,18 @@ class OrderResource extends Resource
                                 ->label('Producto')
                                 ->options(function (Forms\Get $get) {
                                     $categoryFilter = $get('category_id');
-                                    
+
                                     $products = \App\Models\Product::where('restaurant_id', 1)
                                         ->where('is_available', true)
                                         ->with('category')
                                         ->get();
-                                    
+
                                     // Si hay filtro de categoría, filtrar productos
                                     if ($categoryFilter) {
-                                        $products = $products->filter(function($product) use ($categoryFilter) {
+                                        $products = $products->filter(function ($product) use ($categoryFilter) {
                                             $categoryName = strtolower($product->category?->name ?? '');
-                                            
-                                            return match($categoryFilter) {
+
+                                            return match ($categoryFilter) {
                                                 '🍔 HAMBURGUESAS' => str_contains($categoryName, 'hamburgues'),
                                                 '🥤 BEBIDAS' => str_contains($categoryName, 'bebida'),
                                                 '🍟 PAPAS FRITAS' => str_contains($categoryName, 'papa') || str_contains($categoryName, 'frita'),
@@ -342,7 +371,7 @@ class OrderResource extends Resource
                                             };
                                         });
                                     }
-                                    
+
                                     return $products->pluck('name', 'id')->toArray();
                                 })
                                 ->searchable()
@@ -386,8 +415,7 @@ class OrderResource extends Resource
                         ->addActionLabel('➕ Agregar Producto')
                         ->reorderableWithButtons()
                         ->collapsible()
-                        ->itemLabel(fn (array $state): ?string => 
-                            \App\Models\Product::find($state['product_id'] ?? null)?->name ?? 'Nuevo Producto'
+                        ->itemLabel(fn (array $state): ?string => \App\Models\Product::find($state['product_id'] ?? null)?->name ?? 'Nuevo Producto'
                         )
                         ->columnSpanFull(),
                 ])
@@ -403,7 +431,7 @@ class OrderResource extends Resource
                     ->label('ID')
                     ->sortable()
                     ->searchable(),
-                
+
                 Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
@@ -423,7 +451,7 @@ class OrderResource extends Resource
                     })
                     ->sortable()
                     ->searchable(),
-                
+
                 Tables\Columns\TextColumn::make('type')
                     ->label('Tipo')
                     ->sortable()
@@ -434,41 +462,41 @@ class OrderResource extends Resource
                         'para_llevar' => 'Para Llevar',
                         default => ucfirst($state),
                     }),
-                
+
                 Tables\Columns\TextColumn::make('table.number')
                     ->label('Mesa')
                     ->sortable()
                     ->badge()
                     ->color('primary')
                     ->default('N/A'),
-                
+
                 Tables\Columns\TextColumn::make('waiter.name')
                     ->label('Mozo')
                     ->sortable()
                     ->searchable()
                     ->formatStateUsing(fn ($state) => $state ?? 'Pedido Web')
                     ->default('Pedido Web'),
-                
+
                 Tables\Columns\TextColumn::make('total')
                     ->label('Total')
                     ->state(function (Order $record): float {
                         // Asegurarse de que orderProducts esté cargado
-                        if (!$record->relationLoaded('orderProducts')) {
+                        if (! $record->relationLoaded('orderProducts')) {
                             $record->load('orderProducts');
                         }
-                        
+
                         return $record->orderProducts->sum(function ($orderProduct) {
-                            return (float)$orderProduct->quantity * (float)$orderProduct->price;
+                            return (float) $orderProduct->quantity * (float) $orderProduct->price;
                         });
                     })
                     ->formatStateUsing(function ($state) {
-                        return '$ ' . number_format((float) $state, 2, ',', '.');
+                        return '$ '.number_format((float) $state, 2, ',', '.');
                     })
                     ->sortable()
                     ->weight('bold')
                     ->color('success')
                     ->size('lg'),
-                
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha')
                     ->dateTime('d/m/Y H:i')
@@ -485,7 +513,7 @@ class OrderResource extends Resource
                         'delivery' => 'Delivery',
                         'para_llevar' => 'Para Llevar',
                     ]),
-                
+
                 // Filtro por Mesa
                 Tables\Filters\SelectFilter::make('table_id')
                     ->label('Mesa')
@@ -493,7 +521,7 @@ class OrderResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
-                
+
                 // Acciones rápidas de estado
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\Action::make('toProcessing')
@@ -508,7 +536,7 @@ class OrderResource extends Resource
                             $record->status = 'processing';
                             $record->save();
                         }),
-                    
+
                     Tables\Actions\Action::make('toCompleted')
                         ->label('Marcar Completado')
                         ->icon('heroicon-o-check-circle')
@@ -521,7 +549,7 @@ class OrderResource extends Resource
                             $record->status = 'completed';
                             $record->save();
                         }),
-                    
+
                     Tables\Actions\Action::make('toCancelled')
                         ->label('Cancelar Pedido')
                         ->icon('heroicon-o-x-circle')
@@ -533,6 +561,7 @@ class OrderResource extends Resource
                             if ($record->status === 'pending') {
                                 return '¿Estás seguro de cancelar este pedido? No se han usado ingredientes aún.';
                             }
+
                             return '⚠️ ATENCIÓN: Este pedido ya está en preparación. Los ingredientes utilizados se registrarán como merma (desperdicio). ¿Confirmas la cancelación?';
                         })
                         ->modalSubmitActionLabel('Sí, cancelar')
@@ -541,7 +570,7 @@ class OrderResource extends Resource
                             $previousStatus = $record->status;
                             $record->status = 'cancelled';
                             $record->save();
-                            
+
                             if ($previousStatus === 'pending') {
                                 \Filament\Notifications\Notification::make()
                                     ->success()
@@ -561,19 +590,18 @@ class OrderResource extends Resource
                             }
                         }),
                 ])
-                ->label('Estado')
-                ->icon('heroicon-m-ellipsis-vertical')
-                ->size('sm')
-                ->color('primary')
-                ->button(),
-                
+                    ->label('Estado')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->size('sm')
+                    ->color('primary')
+                    ->button(),
+
                 // Acción para registrar pago y crear venta
                 Tables\Actions\Action::make('registerPayment')
                     ->label('Cobrar')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
-                    ->hidden(fn (Order $record): bool => 
-                        $record->status === 'cancelled' || // No cobrar pedidos cancelados
+                    ->hidden(fn (Order $record): bool => $record->status === 'cancelled' || // No cobrar pedidos cancelados
                         $record->sale()->exists() // No cobrar si ya tiene una venta registrada
                     )
                     ->requiresConfirmation()
@@ -586,7 +614,7 @@ class OrderResource extends Resource
                         $orderTotal = $record->orderProducts->sum(function ($orderProduct) {
                             return $orderProduct->quantity * $orderProduct->price;
                         });
-                        
+
                         return [
                             Forms\Components\Section::make('Información del Pago')
                                 ->schema([
@@ -600,11 +628,11 @@ class OrderResource extends Resource
                                         ->required()
                                         ->native(false)
                                         ->columnSpanFull(),
-                                    
+
                                     Forms\Components\Placeholder::make('order_total')
                                         ->label('Total del Pedido')
-                                        ->content(fn () => '$ ' . number_format($orderTotal, 2, ',', '.')),
-                                    
+                                        ->content(fn () => '$ '.number_format($orderTotal, 2, ',', '.')),
+
                                     Forms\Components\Select::make('discount_ids')
                                         ->label('Aplicar Descuentos')
                                         ->multiple()
@@ -617,10 +645,10 @@ class OrderResource extends Resource
                                         ->afterStateUpdated(function (Forms\Set $set, Forms\Get $get) use ($orderTotal) {
                                             $discountIds = $get('discount_ids') ?? [];
                                             $totalDiscount = 0;
-                                            
-                                            if (!empty($discountIds)) {
+
+                                            if (! empty($discountIds)) {
                                                 $discounts = \App\Models\Discount::whereIn('id', $discountIds)->get();
-                                                
+
                                                 foreach ($discounts as $discount) {
                                                     if ($discount->type === 'percentage') {
                                                         $totalDiscount += $orderTotal * ($discount->value / 100);
@@ -629,27 +657,28 @@ class OrderResource extends Resource
                                                     }
                                                 }
                                             }
-                                            
+
                                             $finalTotal = max(0, $orderTotal - $totalDiscount);
                                             $set('total_amount', $finalTotal);
                                             $set('discount_amount', $totalDiscount);
                                         })
                                         ->helperText('Puedes seleccionar múltiples descuentos'),
-                                    
+
                                     Forms\Components\Placeholder::make('discount_display')
                                         ->label('Descuento Aplicado')
                                         ->content(function (Forms\Get $get) {
                                             $discountAmount = $get('discount_amount') ?? 0;
                                             if ($discountAmount > 0) {
-                                                return '- $ ' . number_format($discountAmount, 2, ',', '.');
+                                                return '- $ '.number_format($discountAmount, 2, ',', '.');
                                             }
+
                                             return '$ 0,00';
                                         })
-                                        ->visible(fn (Forms\Get $get) => !empty($get('discount_ids'))),
-                                    
+                                        ->visible(fn (Forms\Get $get) => ! empty($get('discount_ids'))),
+
                                     Forms\Components\Hidden::make('discount_amount')
                                         ->default(0),
-                                    
+
                                     Forms\Components\TextInput::make('total_amount')
                                         ->label('Total a Cobrar')
                                         ->prefix('$')
@@ -667,48 +696,52 @@ class OrderResource extends Resource
                         $caja = \App\Models\Caja::where('restaurant_id', 1)
                             ->where('status', 'abierta')
                             ->first();
-                        
+
                         // Validar que exista una caja abierta
-                        if (!$caja) {
+                        if (! $caja) {
                             \Filament\Notifications\Notification::make()
                                 ->danger()
                                 ->title('Error: No hay Caja Abierta')
                                 ->body('Debes abrir una caja antes de registrar pagos. Ve a la sección de Cajas.')
                                 ->persistent()
                                 ->send();
+
                             return;
                         }
-                        
+
                         try {
                             \Illuminate\Support\Facades\DB::transaction(function () use ($record, $data, $caja) {
                                 // Recalcular el total en el servidor por seguridad
                                 $orderTotal = $record->orderProducts->sum(function ($orderProduct) {
                                     return $orderProduct->quantity * $orderProduct->price;
                                 });
-                                
+
                                 $totalDiscount = 0;
                                 $discountIds = $data['discount_ids'] ?? [];
                                 $discountAmounts = []; // Para guardar el monto de cada descuento
-                                
-                                if (!empty($discountIds)) {
-                                    $discounts = \App\Models\Discount::whereIn('id', $discountIds)->get();
-                                    
+
+                                if (! empty($discountIds)) {
+                                    // Solo descuentos activos pueden aplicarse (regla de negocio).
+                                    $discounts = \App\Models\Discount::whereIn('id', $discountIds)
+                                        ->where('is_active', true)
+                                        ->get();
+
                                     foreach ($discounts as $discount) {
                                         $discountAmount = 0;
-                                        
+
                                         if ($discount->type === 'percentage') {
                                             $discountAmount = $orderTotal * ($discount->value / 100);
                                         } else { // 'fixed'
                                             $discountAmount = $discount->value;
                                         }
-                                        
+
                                         $totalDiscount += $discountAmount;
                                         $discountAmounts[$discount->id] = $discountAmount;
                                     }
                                 }
-                                
+
                                 $finalTotal = max(0, $orderTotal - $totalDiscount);
-                                
+
                                 // Crear la venta
                                 $sale = \App\Models\Sale::create([
                                     'restaurant_id' => 1,
@@ -718,43 +751,43 @@ class OrderResource extends Resource
                                     'payment_method' => $data['payment_method'],
                                     'status' => 'paid',
                                 ]);
-                                
+
                                 // Asociar los descuentos a la venta con sus montos individuales
-                                if (!empty($discountIds)) {
+                                if (! empty($discountIds)) {
                                     foreach ($discountAmounts as $discountId => $amount) {
                                         $sale->discounts()->attach($discountId, [
-                                            'amount_discounted' => $amount
+                                            'amount_discounted' => $amount,
                                         ]);
                                     }
                                 }
-                                
+
                                 // El estado del pedido NO se modifica aquí
                                 // Se maneja independientemente con los botones de estado
                             });
-                            
+
                             // Notificación de éxito
-                            $discountText = !empty($data['discount_ids']) 
-                                ? ' (con descuento aplicado)' 
+                            $discountText = ! empty($data['discount_ids'])
+                                ? ' (con descuento aplicado)'
                                 : '';
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->success()
                                 ->title('Pago Registrado')
-                                ->body("El pago del pedido #{$record->id} fue registrado correctamente{$discountText}. Total: $ " . number_format($data['total_amount'], 2, ',', '.'))
+                                ->body("El pago del pedido #{$record->id} fue registrado correctamente{$discountText}. Total: $ ".number_format($data['total_amount'], 2, ',', '.'))
                                 ->icon('heroicon-o-check-circle')
                                 ->duration(5000)
                                 ->send();
-                                
+
                         } catch (\Throwable $e) {
                             \Filament\Notifications\Notification::make()
                                 ->danger()
                                 ->title('Error al Registrar Pago')
-                                ->body('Ocurrió un error: ' . $e->getMessage())
+                                ->body('Ocurrió un error: '.$e->getMessage())
                                 ->persistent()
                                 ->send();
                         }
                     }),
-                
+
                 // Botón para crear un NUEVO pedido con las mismas características
                 Tables\Actions\Action::make('addProduct')
                     ->label('Nuevo Pedido')
@@ -782,7 +815,7 @@ class OrderResource extends Resource
                                     $set('price', $product?->price ?? 0);
                                 }
                             }),
-                        
+
                         Forms\Components\TextInput::make('quantity')
                             ->label('Cantidad')
                             ->numeric()
@@ -790,14 +823,14 @@ class OrderResource extends Resource
                             ->default(1)
                             ->minValue(1)
                             ->suffix('unid.'),
-                        
+
                         Forms\Components\TextInput::make('price')
                             ->label('Precio Unitario')
                             ->numeric()
                             ->required()
                             ->readOnly()
                             ->prefix('$'),
-                        
+
                         Forms\Components\Textarea::make('notes')
                             ->label('Notas del Producto')
                             ->placeholder('Ej: Sin cebolla, bien cocido...')
@@ -817,7 +850,7 @@ class OrderResource extends Resource
                             'stock_deducted' => false,
                             'notes' => 'Pedido adicional', // Opcional: marcar que es adicional
                         ]);
-                        
+
                         // Agregar el producto al nuevo pedido
                         $newOrder->orderProducts()->create([
                             'product_id' => $data['product_id'],
@@ -825,24 +858,26 @@ class OrderResource extends Resource
                             'price' => $data['price'],
                             'notes' => $data['notes'] ?? null,
                         ]);
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->success()
                             ->title('Nuevo pedido creado')
                             ->body(function () use ($newOrder, $record) {
-                                $tableInfo = $record->table_id ? 'Mesa ' . optional($record->getRelation('table'))->number : $record->customer_name;
-                                return 'Se creó el pedido #' . $newOrder->id . ' para ' . $tableInfo;
+                                $tableInfo = $record->table_id ? 'Mesa '.optional($record->getRelation('table'))->number : $record->customer_name;
+
+                                return 'Se creó el pedido #'.$newOrder->id.' para '.$tableInfo;
                             })
                             ->send();
                     })
                     ->modalHeading(function (Order $record) {
-                        $tableInfo = $record->table_id ? 'Mesa ' . optional($record->getRelation('table'))->number : $record->customer_name;
-                        return 'Nuevo Pedido - ' . $tableInfo;
+                        $tableInfo = $record->table_id ? 'Mesa '.optional($record->getRelation('table'))->number : $record->customer_name;
+
+                        return 'Nuevo Pedido - '.$tableInfo;
                     })
                     ->modalDescription('Se creará un nuevo pedido independiente con las mismas características (mesa, mozo, tipo) pero en estado "Pendiente".')
                     ->modalSubmitActionLabel('Crear Pedido')
                     ->modalWidth('lg'),
-                
+
                 // DeleteAction deshabilitado por integridad de datos
                 // Tables\Actions\DeleteAction::make(),
             ])

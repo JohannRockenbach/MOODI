@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,6 +54,27 @@ class Caja extends Model
         return $this->hasMany(Sale::class);
     }
 
+    /**
+     * Ventas computables para caja: cobradas y no anuladas.
+     */
+    public function computableSalesQuery(): Builder
+    {
+        return $this->sales()
+            ->getQuery()
+            ->where('status', 'paid')
+            ->whereNull('annulled_at');
+    }
+
+    public function computableSalesTotal(): float
+    {
+        return (float) $this->computableSalesQuery()->sum('total_amount');
+    }
+
+    public function computableSalesCount(): int
+    {
+        return (int) $this->computableSalesQuery()->count();
+    }
+
     protected static function booted()
     {
         static::saving(function (self $model) {
@@ -65,11 +87,11 @@ class Caja extends Model
             $messages = [];
 
             if (! is_null($model->initial_balance) && ($model->initial_balance < 0 || $model->initial_balance > $max)) {
-                $messages['initial_balance'] = ['El saldo inicial está fuera de rango (0 - ' . number_format($max, 2, ',', '.') . ').'];
+                $messages['initial_balance'] = ['El saldo inicial está fuera de rango (0 - '.number_format($max, 2, ',', '.').').'];
             }
 
             if (! is_null($model->final_balance) && ($model->final_balance < 0 || $model->final_balance > $max)) {
-                $messages['final_balance'] = ['El saldo final está fuera de rango (0 - ' . number_format($max, 2, ',', '.') . ').'];
+                $messages['final_balance'] = ['El saldo final está fuera de rango (0 - '.number_format($max, 2, ',', '.').').'];
             }
 
             if (! empty($messages)) {
@@ -87,6 +109,6 @@ class Caja extends Model
             return $value;
         }
 
-        return $this->sales()->sum('total_amount');
+        return $this->computableSalesTotal();
     }
 }

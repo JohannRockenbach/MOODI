@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Restaurant;
 use App\Models\Sale;
 use App\Models\User;
+use App\Support\DisplayText;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,7 +48,7 @@ new #[Layout('components.layouts.checkout')] class extends Component
 
         /** @var User|null $user */
         if ($user && filled($user->address)) {
-            $this->delivery_address = (string) $user->address;
+            $this->delivery_address = DisplayText::plain($user->address);
         }
     }
 
@@ -165,6 +166,7 @@ new #[Layout('components.layouts.checkout')] class extends Component
             return;
         }
 
+        /** @var User $user */
         $restaurantId = Restaurant::query()->whereKey(1)->value('id')
             ?: ($user->restaurant_id ?: Restaurant::query()->value('id'));
 
@@ -176,7 +178,7 @@ new #[Layout('components.layouts.checkout')] class extends Component
 
         $cartSnapshot = $this->cartItems;
         $orderType = $this->type;
-        $address = $this->delivery_address;
+        $address = DisplayText::plain($this->delivery_address);
         $payMethodUi = $this->payment_method;
         $subtotalAmount = (float) collect($cartSnapshot)->sum(
             fn ($item) => ((float) ($item['price'] ?? 0)) * ((int) ($item['quantity'] ?? 0))
@@ -229,8 +231,8 @@ new #[Layout('components.layouts.checkout')] class extends Component
                     'waiter_id' => null,  // Pedido web: no hay mozo asignado
                     'restaurant_id' => $restaurantId,
                     'delivery_address' => $orderType === 'delivery' ? $address : null,
-                    'delivery_phone' => $user->phone,
-                    'customer_name' => $user->name,
+                    'delivery_phone' => DisplayText::plain($user->phone),
+                    'customer_name' => DisplayText::plain($user->name, 'Cliente web'),
                     'customer_id' => $user->cliente?->id,
                     'stock_deducted' => false,
                 ]);
@@ -331,6 +333,11 @@ new #[Layout('components.layouts.checkout')] class extends Component
 <div class="min-h-screen bg-gray-50 py-6 sm:py-8 md:py-10 overflow-x-hidden">
     <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
 
+        @php
+            $safeUserName = \App\Support\DisplayText::plain(auth()->user()?->name, 'Usuario');
+            $safeUserPhone = \App\Support\DisplayText::plain(auth()->user()?->phone, 'Sin teléfono registrado');
+        @endphp
+
         <div class="mb-4">
             <a
                 href="{{ url('/') }}"
@@ -427,7 +434,7 @@ new #[Layout('components.layouts.checkout')] class extends Component
                             <label class="block text-sm font-semibold text-gray-700">Nombre</label>
                             <input
                                 type="text"
-                                value="{{ auth()->user()->name }}"
+                                value="{{ $safeUserName }}"
                                 readonly
                                 class="mt-1.5 block w-full rounded-xl border-gray-200 bg-gray-50 text-gray-600 text-sm cursor-default truncate"
                             />
@@ -436,7 +443,7 @@ new #[Layout('components.layouts.checkout')] class extends Component
                             <label class="block text-sm font-semibold text-gray-700">Teléfono</label>
                             <input
                                 type="text"
-                                value="{{ auth()->user()->phone ?: 'Sin teléfono registrado' }}"
+                                value="{{ $safeUserPhone }}"
                                 readonly
                                 class="mt-1.5 block w-full rounded-xl border-gray-200 bg-gray-50 text-gray-600 text-sm cursor-default truncate"
                             />
@@ -534,9 +541,12 @@ new #[Layout('components.layouts.checkout')] class extends Component
 
                 <div class="mt-4 space-y-2">
                     @foreach($cartItems as $item)
+                        @php
+                            $safeItemName = \App\Support\DisplayText::plain($item['name'] ?? null, 'Producto');
+                        @endphp
                         <div class="flex items-center justify-between gap-2 sm:gap-3 rounded-xl border border-gray-100 bg-gray-50 p-2.5 sm:p-3 min-w-0">
                             <div class="min-w-0">
-                                <p class="truncate text-xs sm:text-sm font-bold text-gray-900">{{ $item['name'] }}</p>
+                                <p class="truncate text-xs sm:text-sm font-bold text-gray-900">{{ $safeItemName }}</p>
                                 <p class="mt-0.5 text-xs text-gray-500">
                                     x{{ $item['quantity'] }} &times; ${{ number_format((float)$item['price'], 0, ',', '.') }}
                                 </p>

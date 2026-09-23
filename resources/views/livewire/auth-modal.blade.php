@@ -5,14 +5,14 @@
     x-show="open"
     x-cloak
 >
-    <div class="fixed inset-0 z-[70] flex items-end justify-center p-3 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Autenticación de usuario">
+    <div class="fixed inset-0 z-[70] flex items-end justify-center p-2 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Autenticación de usuario">
         <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="open = false"></div>
 
-        <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white p-4 pr-12 sm:p-6 sm:pr-14 md:p-8 md:pr-16 shadow-2xl" @click.stop>
+        <div class="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden rounded-2xl bg-white p-3 pr-10 sm:p-6 sm:pr-14 md:p-8 md:pr-16 shadow-2xl" @click.stop>
             <button
                 type="button"
                 @click="open = false"
-                class="absolute top-2 right-2 z-10 rounded-full bg-gray-50 p-2 text-gray-400 hover:text-gray-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                class="absolute top-2 right-2 z-10 rounded-full bg-gray-50 p-2.5 text-gray-400 hover:text-gray-600 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                 aria-label="Cerrar"
             >
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -20,12 +20,12 @@
                 </svg>
             </button>
 
-            <div class="mb-5 flex rounded-xl bg-gray-100 p-1">
+            <div class="mb-5 flex rounded-xl bg-gray-100 p-1 gap-1">
         <button
             type="button"
             @click="tab = 'login'"
             :class="tab === 'login' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-600'"
-            class="flex-1 rounded-lg px-2.5 py-2 text-xs font-bold transition sm:px-4 sm:py-2.5 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            class="flex-1 rounded-lg px-2 py-2.5 text-[11px] font-bold leading-tight transition sm:px-4 sm:py-2.5 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
         >
             Iniciar Sesión
         </button>
@@ -33,7 +33,7 @@
             type="button"
             @click="tab = 'register'"
             :class="tab === 'register' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-600'"
-            class="flex-1 rounded-lg px-2.5 py-2 text-xs font-bold transition sm:px-4 sm:py-2.5 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            class="flex-1 rounded-lg px-2 py-2.5 text-[11px] font-bold leading-tight transition sm:px-4 sm:py-2.5 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
         >
             Registrarse
         </button>

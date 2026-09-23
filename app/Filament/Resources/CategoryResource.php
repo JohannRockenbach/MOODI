@@ -55,6 +55,21 @@ class CategoryResource extends Resource
                             ->placeholder('Descripción opcional de la categoría...')
                             ->rows(3)
                             ->columnSpanFull(),
+
+                        Forms\Components\Select::make('parent_id')
+                            ->label('Categoría padre (subcategoría de)')
+                            ->options(function (?Category $record): array {
+                                return Category::query()
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Ninguna (categoría principal)')
+                            ->helperText('Deja vacío para una categoría principal. Si eliges una padre, esta categoría se convierte en subcategoría.')
+                            ->columnSpanFull(),
                     ])
                     ->collapsible(),
                 
@@ -121,7 +136,8 @@ class CategoryResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                // Ver categorías eliminadas (soft deletes).
+                Tables\Filters\TrashedFilter::make(),
             ])
             ->actions([
                 Tables\Actions\Action::make('ver_productos')
@@ -139,6 +155,9 @@ class CategoryResource extends Resource
                     ->visible(fn (Category $record): bool => $record->products->count() > 0),
                 
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\RestoreAction::make()
+                    ->visible(fn ($record) => $record->trashed()),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

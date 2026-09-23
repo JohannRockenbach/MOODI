@@ -14,9 +14,18 @@ class KitchenDashboard extends Page
     // Usar ruta de vista concisa bajo resources/views/filament/pages
     protected static string $view = 'filament.pages.kitchen-dashboard';
 
+    // La pantalla de cocina es operativa: super_admin y Cocinero.
+    public static function canAccess(array $parameters = []): bool
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        return $user !== null && $user->hasAnyRole(['super_admin', 'Cocinero']);
+    }
+
     // Propiedades públicas expuestas a la vista / Livewire
     public $pendingOrders;
     public $processingOrders;
+    public $readyOrders;
 
     // Filament / Livewire hará polling al componente. Retorna segundos.
     protected function getPollingInterval(): ?string
@@ -58,6 +67,9 @@ class KitchenDashboard extends Page
         // En Preparación: más antiguos primero (FIFO - First In, First Out)
         // Los que entraron primero deben salir primero
         $this->processingOrders = (clone $baseQuery)->where('status', 'processing')->oldest()->get();
+
+        // Listos para retirar: más antiguos primero
+        $this->readyOrders = (clone $baseQuery)->where('status', 'ready_for_pickup')->oldest()->get();
     }
 
     // Acción disparada desde la UI para comenzar a procesar un pedido
@@ -77,9 +89,28 @@ class KitchenDashboard extends Page
     {
         $order = Order::find($orderId);
         if ($order && $order->status === 'processing') {
-            // Marcar directamente como completado desde la cocina
+            $order->update(['status' => 'ready_for_pickup']);
+            $this->loadOrders();
+            
+            \Filament\Notifications\Notification::make()
+                ->success()
+                ->title('🟠 Pedido Listo')
+                ->body("Pedido #{$orderId} está listo para retirar.")
+                ->icon('heroicon-o-check-circle')
+                ->iconColor('success')
+                ->send();
+                
+            $this->dispatch('orderStatusChanged');
+        }
+    }
+
+    // Marcar pedido como completado (desde ready_for_pickup)
+    public function markAsCompleted(int $orderId): void
+    {
+        $order = Order::find($orderId);
+        if ($order && $order->status === 'ready_for_pickup') {
             $order->update(['status' => 'completed']);
-            $this->loadOrders(); // Recargar AMBAS listas
+            $this->loadOrders();
             $this->notify('success', 'Pedido marcado como Completado.');
             $this->dispatch('orderStatusChanged');
         }

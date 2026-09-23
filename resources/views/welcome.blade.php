@@ -30,6 +30,9 @@
         </style>
     </head>
     <body x-data="{}" class="bg-gray-50 text-gray-800 antialiased font-sans min-h-screen overflow-x-hidden">
+        @php
+            $safeAuthName = \App\Support\DisplayText::plain(auth()->user()?->name, 'Usuario');
+        @endphp
         <header class="hidden md:flex sticky top-0 z-50 bg-white border-b border-orange-100 shadow-sm">
             <div class="mx-auto w-full max-w-7xl px-6 lg:px-8 py-4 flex items-center gap-6">
                 <a href="{{ url('/') }}" class="text-3xl font-black tracking-tight text-orange-600 shrink-0">
@@ -54,9 +57,9 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 lg:gap-4">
+                <div class="flex items-center gap-3 lg:gap-4 min-w-0">
                     @auth
-                        <span class="text-sm font-semibold text-gray-700">Hola, {{ auth()->user()->name }}</span>
+                        <span class="hidden lg:inline text-sm font-semibold text-gray-700 max-w-[180px] truncate">Hola, {{ $safeAuthName }}</span>
                         <a href="{{ route('dashboard') }}" class="inline-flex h-11 items-center rounded-full bg-orange-500 px-5 text-sm font-bold text-white hover:bg-orange-600 transition">
                             Mi Perfil
                         </a>
@@ -156,8 +159,11 @@
                 <div class="mx-auto max-w-7xl px-4 md:px-6 lg:px-8 py-4">
                     <div class="flex gap-3 overflow-x-auto scrollbar-oculta pb-1">
                         @foreach($categories as $category)
-                            <a href="#{{ \Illuminate\Support\Str::slug($category->name) }}" class="shrink-0 rounded-full border border-orange-200 bg-gray-50 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-bold text-gray-800 hover:bg-orange-100 hover:border-orange-300 hover:text-orange-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1">
-                                {{ $category->name }}
+                            @php
+                                $safeCategoryName = \App\Support\DisplayText::plain($category->name, 'Categoría');
+                            @endphp
+                            <a href="#{{ \Illuminate\Support\Str::slug($safeCategoryName) }}" class="shrink-0 rounded-full border border-orange-200 bg-gray-50 px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-bold text-gray-800 hover:bg-orange-100 hover:border-orange-300 hover:text-orange-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1">
+                                {{ $safeCategoryName }}
                             </a>
                         @endforeach
                     </div>
@@ -166,29 +172,32 @@
 
             <section class="mx-auto max-w-7xl px-4 md:px-6 lg:px-8 py-8 md:py-10 space-y-10">
                 @foreach($categories as $category)
-                    <section id="{{ \Illuminate\Support\Str::slug($category->name) }}" class="scroll-mt-32">
-                        <h2 class="text-2xl sm:text-3xl font-black text-gray-900 break-words">{{ $category->name }}</h2>
+                    @php
+                        $safeCategoryName = \App\Support\DisplayText::plain($category->name, 'Categoría');
+                    @endphp
+                    <section id="{{ \Illuminate\Support\Str::slug($safeCategoryName) }}" class="scroll-mt-32">
+                        <h2 class="text-2xl sm:text-3xl font-black text-gray-900 break-words">{{ $safeCategoryName }}</h2>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                             @foreach($category->products as $product)
                                 @php
-                                    $fallbackImage = 'https://ui-avatars.com/api/?name=' . urlencode($product->name) . '&background=f3f4f6&color=1f2937&size=512';
+                                    $safeProductName = \App\Support\DisplayText::plain($product->name, 'Producto');
+                                    $fallbackImage = 'https://ui-avatars.com/api/?name=' . urlencode($safeProductName) . '&background=f3f4f6&color=1f2937&size=512';
                                     $productImage = data_get($product, 'image_url')
                                         ?? data_get($product, 'image')
                                         ?? data_get($product, 'photo_url')
                                         ?? data_get($product, 'thumbnail')
                                         ?? data_get($product, 'cover');
 
-                                    $decodedDescription = html_entity_decode((string) ($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                                    $sanitizedDescription = \Illuminate\Support\Str::of(strip_tags($decodedDescription))
-                                        ->squish()
-                                        ->trim()
-                                        ->value();
+                                    $sanitizedDescription = \App\Support\DisplayText::plain(
+                                        $product->description,
+                                        'Delicioso producto preparado al momento con ingredientes frescos.'
+                                    );
                                 @endphp
                                 <article class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-w-0">
                                     <img
                                         src="{{ filled($productImage) ? $productImage : $fallbackImage }}"
-                                        alt="{{ $product->name }}"
+                                        alt="{{ $safeProductName }}"
                                         loading="lazy"
                                         decoding="async"
                                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -197,9 +206,9 @@
                                     >
 
                                     <div class="p-4 sm:p-5">
-                                        <h3 class="font-bold text-base sm:text-lg text-gray-900 break-words">{{ $product->name }}</h3>
+                                        <h3 class="font-bold text-base sm:text-lg text-gray-900 break-words">{{ $safeProductName }}</h3>
                                         <p class="text-sm text-gray-500 line-clamp-2 mt-1">
-                                            {{ $sanitizedDescription !== '' ? $sanitizedDescription : 'Delicioso producto preparado al momento con ingredientes frescos.' }}
+                                            {{ $sanitizedDescription }}
                                         </p>
 
                                         <div class="mt-5 flex items-center justify-between">
