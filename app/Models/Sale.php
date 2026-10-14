@@ -162,6 +162,37 @@ class Sale extends Model
         return $this->status === 'annulled' && ! is_null($this->annulled_at);
     }
 
+    /**
+     * Acumulación de puntos de fidelización (OBJ-06). DECISIÓN DEL
+     * ORQUESTADOR (ajustable por el dueño):
+     *   - 1 punto por cada $100 de venta (floor). Ej: $250 → 2 puntos.
+     *   - Solo ventas `paid`, NO anuladas, con cliente asociado.
+     *   - Incremento atómico (increment) → seguro ante concurrencia.
+     *
+     * Idempotente por diseño: solo se invoca desde `static::created`, nunca
+     * desde `updated`, por lo que un update posterior NO re-suma puntos.
+     */
+    protected function awardLoyaltyPoints(): void
+    {
+        if ($this->status !== 'paid' || $this->isAnnulled()) {
+            return;
+        }
+
+        $points = (int) floor((float) $this->total_amount / 100);
+
+        if ($points <= 0) {
+            return;
+        }
+
+        $customerId = $this->order?->customer_id;
+
+        if (! $customerId) {
+            return;
+        }
+
+        Cliente::whereKey($customerId)->increment('loyalty_points', $points);
+    }
+
     public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);
@@ -375,6 +406,14 @@ class Sale extends Model
                 'caja_id' => $sale->caja_id,
                 'total_amount' => $sale->total_amount,
             ]);
+        });
+
+        // Fidelización con PUNTOS (OBJ-06): acumulación en el MISMO hook
+        // `created` que ya registra auditoría. Idempotente por diseño: solo
+        // corre en `created` (nunca en `updated`), por lo que una venta
+        // anulada y restaurada NO re-suma puntos.
+        static::created(function (Sale $sale) {
+            $sale->awardLoyaltyPoints();
         });
 
         static::saving(function ($sale) {

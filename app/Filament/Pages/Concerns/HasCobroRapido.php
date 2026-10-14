@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Concerns;
 
 use App\Models\Caja;
+use App\Models\Cliente;
 use App\Models\Discount;
 use App\Models\Order;
 use App\Models\Product;
@@ -69,6 +70,12 @@ trait HasCobroRapido
 
     // Descuentos activos seleccionados (ids) — patrón de TableMap.
     public array $selectedDiscounts = [];
+
+    // FIDELIZACIÓN (OBJ-06): canje de puntos en el cobro. Solo disponible
+    // cuando la cuenta tiene un cliente asociado (account['customer_id']).
+    public bool $useLoyaltyPoints = false;      // ¿"Usar puntos" activado?
+
+    public string $loyaltyPointsToUse = '';     // Cantidad de puntos a canjear (input).
 
     // Monto recibido en efectivo (input grande del TPV).
     public string $montoRecibido = '';
@@ -376,6 +383,7 @@ trait HasCobroRapido
 
         return [
             'table_id' => $table->id,
+            'customer_id' => $this->resolveAccountCustomerId($table->orders),
             'number' => $table->number,
             'location' => $table->location,
             'zone_label' => $this->zoneLabel($table->location),
@@ -411,6 +419,7 @@ trait HasCobroRapido
         return $this->takeawayLikeAccount(
             displayLabel: 'Pedido #'.$order->id,
             orders: collect([$this->mapOrder($order)]),
+            customerId: $order->customer_id,
         );
     }
 
@@ -435,6 +444,7 @@ trait HasCobroRapido
 
         return [
             'table_id' => $table->id,
+            'customer_id' => $this->resolveAccountCustomerId($table->orders),
             'number' => $table->number,
             'location' => $table->location,
             'zone_label' => $this->zoneLabel($table->location),
@@ -452,11 +462,12 @@ trait HasCobroRapido
     /**
      * Estructura base de una cuenta SIN mesa (para llevar / draft takeaway).
      */
-    private function takeawayLikeAccount(string $displayLabel, Collection $orders): array
+    private function takeawayLikeAccount(string $displayLabel, Collection $orders, ?int $customerId = null): array
     {
         return [
             'is_takeaway' => true,
             'order_id' => $this->selectedOrderId,
+            'customer_id' => $customerId,
             'number' => null,
             'display_label' => $displayLabel,
             'location' => 'Para llevar',
@@ -486,6 +497,7 @@ trait HasCobroRapido
             $qty = (int) ($item['qty'] ?? 0);
 
             return [
+                'product_id' => $item['product_id'] ?? null,
                 'name' => $product?->name ?? ($item['name'] ?? 'Producto eliminado'),
                 'quantity' => $qty,
                 'price' => $price,
@@ -520,6 +532,7 @@ trait HasCobroRapido
             'waiter_name' => $order->waiter?->name,
             'subtotal' => round($order->orderProducts->sum(fn ($item) => (float) $item->quantity * (float) $item->price), 2),
             'items' => $order->orderProducts->map(fn ($item) => [
+                'product_id' => $item->product_id,
                 'name' => $item->product?->name ?? 'Producto eliminado',
                 'quantity' => (int) $item->quantity,
                 'price' => (float) $item->price,
@@ -528,6 +541,21 @@ trait HasCobroRapido
                 'emoji' => self::categoryEmoji($item->product?->category?->name ?? ''),
             ])->values(),
         ];
+    }
+
+    /**
+     * Resuelve el customer_id de una cuenta de MESA a partir de sus comandas.
+     * LIMITACIÓN DOCUMENTADA (OBJ-06): si la mesa tiene comandas con clientes
+     * DISTINTOS, se toma el primer customer_id no nulo (orden por created_at).
+     * El canje de puntos se aplica a ese cliente. En la práctica las comandas
+     * locales no llevan cliente; solo los pedidos web/delivery lo traen.
+     */
+    private function resolveAccountCustomerId(Collection $orders): ?int
+    {
+        return $orders
+            ->pluck('customer_id')
+            ->filter()
+            ->first();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -603,13 +631,18 @@ trait HasCobroRapido
     }
 
     /**
-     * Total de la CUENTA (subtotal − descuento). Mismo accesor EXPLÍCITO que
-     * accountSubtotal(): CrearPedido define getTotalProperty (total del
-     * carrito) y opaca al computed del trait.
+     * Total de la CUENTA (subtotal − descuentos − canje de puntos). Mismo
+     * accesor EXPLÍCITO que accountSubtotal(): CrearPedido define
+     * getTotalProperty (total del carrito) y opaca al computed del trait.
+     *
+     * El canje de puntos (OBJ-06) se aplica como un descuento ADICIONAL
+     * separado del descuento de promociones (Discount): así el SPLIT y el
+     * reparto proporcional de `chargeOrder` no se rompen (el total de la
+     * cuenta se reduce, la fila única del split se re-sincroniza sola).
      */
     public function accountTotal(): float
     {
-        return round(max(0, $this->accountSubtotal() - $this->discountAmountValue()), 2);
+        return round(max(0, $this->accountSubtotal() - $this->discountAmountValue() - $this->loyaltyDiscountAmount()), 2);
     }
 
     /**
@@ -627,6 +660,9 @@ trait HasCobroRapido
      * pública real siempre gana sobre el magic __get de Livewire): toda la
      * lógica interna y el blade usan ESTE método para ser idénticos en ambas
      * páginas.
+     *
+     * Tipos: percentage → % del subtotal, fixed → monto fijo, bogo (2x1) →
+     * descuento por cantidad de pares del mismo producto (ver bogoDiscountAmount).
      */
     public function discountAmountValue(): float
     {
@@ -649,12 +685,167 @@ trait HasCobroRapido
 
             if ($discount->type === 'percentage') {
                 $totalDiscount += $subtotal * ((float) $discount->value / 100);
+            } elseif ($discount->type === 'bogo') {
+                $totalDiscount += $this->bogoDiscountAmount();
             } else {
                 $totalDiscount += (float) $discount->value;
             }
         }
 
         return round($totalDiscount, 2);
+    }
+
+    /**
+     * Descuento 2x1 (bogo) para la CUENTA (OBJ-07 / CU-002.2). DECISIÓN DEL
+     * ORQUESTADOR (ajustable por el dueño):
+     *   - Por cada PAR de unidades del MISMO producto se descuenta el precio
+     *     de UNA unidad (la más barata del par).
+     *   - Como en la cuenta todos los ítems del mismo producto comparten
+     *     precio, "la más barata" degenera en min(price) del producto.
+     *   - Fórmula por producto: floor(cantidad_total / 2) * min(precio).
+     *
+     * OBTENCIÓN DE ITEMS (documentado): los ítems se leen del account
+     * (`account['orders'][*]['items']`), que ya reúne comanda en curso
+     * (draft) + comandas enviadas / pedido para llevar, cada ítem con
+     * `product_id`, `quantity` y `price` REAL (re-validado contra la DB).
+     * Se agrupan por `product_id`; los ítems SIN product_id (producto
+     * eliminado) se ignoran (no rompen el cálculo).
+     */
+    public function bogoDiscountAmount(): float
+    {
+        if (! $this->account) {
+            return 0.0;
+        }
+
+        $byProduct = collect($this->account['orders'] ?? [])
+            ->flatMap(fn (array $order) => $order['items'] ?? [])
+            ->filter(fn (array $item) => ! empty($item['product_id']))
+            ->groupBy('product_id');
+
+        $total = 0.0;
+
+        foreach ($byProduct as $items) {
+            $qty = (int) $items->sum('quantity');
+
+            if ($qty < 2) {
+                continue;
+            }
+
+            $minPrice = (float) $items->min('price');
+
+            if ($minPrice <= 0) {
+                continue;
+            }
+
+            $total += (int) floor($qty / 2) * $minPrice;
+        }
+
+        return round($total, 2);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // FIDELIZACIÓN (OBJ-06): canje de puntos en el cobro
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * customer_id del cliente asociado a la cuenta (si lo hay). Solo las
+     * cuentas que YA traen customer_id (pedido web/delivery, o comanda de
+     * mesa con cliente) habilitan el canje; el draft del TPV no tiene cliente.
+     */
+    public function accountCustomerId(): ?int
+    {
+        $id = $this->account['customer_id'] ?? null;
+
+        return $id ? (int) $id : null;
+    }
+
+    /**
+     * Cliente asociado a la cuenta (null si no hay). Se resuelve fresco en
+     * cada render para reflejar el saldo de puntos actual.
+     */
+    #[Computed]
+    public function loyaltyCustomer(): ?Cliente
+    {
+        $id = $this->accountCustomerId();
+
+        return $id ? Cliente::query()->find($id) : null;
+    }
+
+    /**
+     * Saldo de puntos disponible del cliente de la cuenta.
+     */
+    public function loyaltyPointsAvailable(): int
+    {
+        return (int) ($this->loyaltyCustomer->loyalty_points ?? 0);
+    }
+
+    /**
+     * Puntos que el usuario pidió canjear (input, sanitizado a entero ≥ 0).
+     */
+    public function loyaltyPointsRequested(): int
+    {
+        return max(0, (int) $this->loyaltyPointsToUse);
+    }
+
+    /**
+     * Descuento en $ por canje de puntos. DECISIÓN DEL ORQUESTADOR (OBJ-06):
+     *   - 1 punto = $1.
+     *   - El canje NO puede superar el total a pagar: se limita a
+     *     min(puntos_pedidos, saldo, floor(total a pagar)).
+     *   - Total a pagar = subtotal − descuento de promociones.
+     * Devuelve $0 si no hay cliente, no hay puntos o no se activó "Usar
+     * puntos". El resultado (int) es a la vez el descuento en $ y los puntos
+     * a descontar del cliente.
+     */
+    public function loyaltyDiscountAmount(): float
+    {
+        if (! $this->useLoyaltyPoints) {
+            return 0.0;
+        }
+
+        $available = $this->loyaltyPointsAvailable();
+
+        if ($available <= 0) {
+            return 0.0;
+        }
+
+        $requested = $this->loyaltyPointsRequested();
+
+        if ($requested <= 0) {
+            return 0.0;
+        }
+
+        $maxDiscount = max(0, $this->accountSubtotal() - $this->discountAmountValue());
+
+        $points = min($requested, $available, (int) floor($maxDiscount));
+
+        return (float) max(0, $points);
+    }
+
+    /**
+     * Puntos efectivamente a descontar del cliente al cobrar (== descuento).
+     */
+    public function loyaltyPointsToApply(): int
+    {
+        return (int) $this->loyaltyDiscountAmount();
+    }
+
+    /**
+     * Hook de Livewire: al activar/desactivar "Usar puntos" re-sincroniza la
+     * fila única del split con el nuevo total.
+     */
+    public function updatedUseLoyaltyPoints(): void
+    {
+        $this->syncSinglePaymentRow();
+    }
+
+    /**
+     * Hook de Livewire: al cambiar la cantidad de puntos re-sincroniza la
+     * fila única del split con el nuevo total.
+     */
+    public function updatedLoyaltyPointsToUse(): void
+    {
+        $this->syncSinglePaymentRow();
     }
 
     public function getTotalProperty(): float
@@ -792,7 +983,8 @@ trait HasCobroRapido
         return Discount::where('restaurant_id', 1)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Discount $discount) => $discount->isEligibleNow());
     }
 
     /**
@@ -914,10 +1106,17 @@ trait HasCobroRapido
 
         $subtotal = $this->accountSubtotal();
         $discountAmount = $this->discountAmountValue();
+        // Fidelización (OBJ-06): descuento adicional por canje de puntos. Se
+        // suma al descuento de promociones para el reparto proporcional de
+        // chargeOrder (el total de la cuenta ya lo incluye vía accountTotal()).
+        $loyaltyDiscount = $this->loyaltyDiscountAmount();
+        $loyaltyPoints = (int) $loyaltyDiscount;
+        $loyaltyCustomerId = $this->accountCustomerId();
+        $totalReduction = $discountAmount + $loyaltyDiscount;
         $createdSaleIds = [];
 
         try {
-            DB::transaction(function () use ($cajaAbierta, $subtotal, $discountAmount, &$createdSaleIds) {
+            DB::transaction(function () use ($cajaAbierta, $subtotal, $totalReduction, $loyaltyPoints, $loyaltyCustomerId, &$createdSaleIds) {
                 $ordersToCharge = collect();
                 $table = null;
                 $draftOrderIds = [];
@@ -980,11 +1179,19 @@ trait HasCobroRapido
                         $order,
                         $cajaAbierta,
                         $subtotal,
-                        $discountAmount,
+                        $totalReduction,
                         complete: ! in_array($order->id, $draftOrderIds, true),
                     );
 
                     $createdSaleIds[] = $sale->id;
+                }
+
+                // Fidelización (OBJ-06): descontar los puntos canjeados del
+                // cliente DENTRO de la transacción, solo si se usaron. El
+                // decrement es atómico y corre una única vez por cobro (no por
+                // venta individual en cuentas con varias comandas).
+                if ($loyaltyPoints > 0 && $loyaltyCustomerId) {
+                    Cliente::whereKey($loyaltyCustomerId)->decrement('loyalty_points', $loyaltyPoints);
                 }
 
                 // Liberar la mesa solo si se cobró una cuenta de MESA. El
@@ -1404,6 +1611,8 @@ trait HasCobroRapido
         $this->paymentMethod = 'cash';
         $this->selectedDiscounts = [];
         $this->montoRecibido = '';
+        $this->useLoyaltyPoints = false;
+        $this->loyaltyPointsToUse = '';
 
         // SPLIT: por defecto UNA fila [método = paymentMethod, monto = total].
         $this->payments = [[
@@ -1427,6 +1636,8 @@ trait HasCobroRapido
         $this->paymentMethod = 'cash';
         $this->selectedDiscounts = [];
         $this->montoRecibido = '';
+        $this->useLoyaltyPoints = false;
+        $this->loyaltyPointsToUse = '';
         $this->payments = [];
 
         unset($this->account, $this->chargeableTables, $this->takeawayOrders);

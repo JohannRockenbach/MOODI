@@ -60,25 +60,36 @@ class DiscountResource extends Resource
                             ->options([
                                 'percentage' => 'Porcentaje',
                                 'fixed' => 'Monto Fijo',
+                                'bogo' => '2x1 (Lleva 2 Pagá 1)',
                             ])
                             ->required()
                             ->native(false)
                             ->default('percentage')
                             ->live() // Reactivo para cambiar el sufijo del valor
-                            ->helperText('Selecciona si el descuento es un porcentaje o un monto fijo')
+                            ->afterStateUpdated(function (Forms\Set $set, $state): void {
+                                // 2x1 (bogo) no usa `value`: el descuento se calcula
+                                // por cantidad de pares. Forzamos value = 0 (columna
+                                // NOT NULL) para no romper el guardado.
+                                if ($state === 'bogo') {
+                                    $set('value', 0);
+                                }
+                            })
+                            ->helperText('Selecciona si el descuento es porcentaje, monto fijo o 2x1')
                             ->columnSpan(1),
 
                         // Valor del Descuento (cambia según el tipo)
                         Forms\Components\TextInput::make('value')
                             ->label('Valor')
-                            ->required()
+                            ->required(fn (Forms\Get $get): bool => $get('type') !== 'bogo')
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(fn (Forms\Get $get): int => 
                                 $get('type') === 'percentage' ? 100 : 999999
                             )
+                            ->disabled(fn (Forms\Get $get): bool => $get('type') === 'bogo')
+                            ->dehydrated()
                             ->suffix(fn (Forms\Get $get): ?string => 
-                                $get('type') === 'percentage' ? '%' : '$'
+                                $get('type') === 'percentage' ? '%' : ($get('type') === 'bogo' ? '' : '$')
                             )
                             ->step(fn (Forms\Get $get): string => 
                                 $get('type') === 'percentage' ? '0.01' : '1'
@@ -86,7 +97,9 @@ class DiscountResource extends Resource
                             ->helperText(fn (Forms\Get $get): string => 
                                 $get('type') === 'percentage' 
                                     ? 'Ingresa el porcentaje de descuento (0-100%)' 
-                                    : 'Ingresa el monto fijo de descuento en pesos'
+                                    : ($get('type') === 'bogo' 
+                                        ? 'No aplica — el 2x1 se calcula por cantidad de pares del mismo producto' 
+                                        : 'Ingresa el monto fijo de descuento en pesos')
                             )
                             ->columnSpan(1),
 
@@ -116,6 +129,40 @@ class DiscountResource extends Resource
                     ])
                     ->columns(2)
                     ->collapsible(),
+
+                // Vigencia horaria (CU-002.2 / OBJ-07): franja de hora + días.
+                // Vacío en TODO = elegible siempre.
+                Forms\Components\Section::make('Vigencia Horaria (opcional)')
+                    ->schema([
+                        Forms\Components\TimePicker::make('starts_at')
+                            ->label('Inicia a las')
+                            ->native(false)
+                            ->seconds(false)
+                            ->columnSpan(1),
+
+                        Forms\Components\TimePicker::make('ends_at')
+                            ->label('Termina a las')
+                            ->native(false)
+                            ->seconds(false)
+                            ->columnSpan(1),
+
+                        Forms\Components\CheckboxList::make('days_of_week')
+                            ->label('Días de la semana')
+                            ->options([
+                                0 => 'Lunes',
+                                1 => 'Martes',
+                                2 => 'Miércoles',
+                                3 => 'Jueves',
+                                4 => 'Viernes',
+                                5 => 'Sábado',
+                                6 => 'Domingo',
+                            ])
+                            ->columns(4)
+                            ->helperText('Vacío = todos los días')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->collapsed(),
             ]);
     }
 
@@ -142,7 +189,11 @@ class DiscountResource extends Resource
                 Tables\Columns\TextColumn::make('value')
                     ->label('Valor')
                     ->formatStateUsing(function (Discount $record, $state): string {
-                        return $record->type === 'percentage' ? $state . '%' : '$' . number_format((float) $state, 2, ',', '.');
+                        return match ($record->type) {
+                            'percentage' => $state.'%',
+                            'bogo' => '2x1',
+                            default => '$'.number_format((float) $state, 2, ',', '.'),
+                        };
                     })
                     ->sortable()
                     ->badge()
@@ -151,9 +202,18 @@ class DiscountResource extends Resource
                 // Tipo de Descuento
                 Tables\Columns\TextColumn::make('type')
                     ->label('Tipo')
-                    ->formatStateUsing(fn (string $state): string => $state === 'percentage' ? 'Porcentaje' : 'Monto Fijo')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'percentage' => 'Porcentaje',
+                        'fixed' => 'Monto Fijo',
+                        'bogo' => '2x1',
+                        default => ucfirst($state),
+                    })
                     ->badge()
-                    ->color(fn (string $state): string => $state === 'percentage' ? 'warning' : 'info'),
+                    ->color(fn (string $state): string => match ($state) {
+                        'percentage' => 'warning',
+                        'bogo' => 'danger',
+                        default => 'info',
+                    }),
 
                 // Estado Activo/Inactivo
                 Tables\Columns\IconColumn::make('is_active')
@@ -182,6 +242,7 @@ class DiscountResource extends Resource
                     ->options([
                         'percentage' => 'Porcentaje',
                         'fixed' => 'Monto Fijo',
+                        'bogo' => '2x1',
                     ]),
 
                 // Filtro por Estado

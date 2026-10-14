@@ -94,6 +94,13 @@ class ClienteResource extends Resource
                     ->sortable()
                     ->placeholder('-'),
 
+                Tables\Columns\TextColumn::make('loyalty_points')
+                    ->label('Puntos')
+                    ->sortable()
+                    ->badge()
+                    ->color('warning')
+                    ->alignCenter(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha de Registro')
                     ->dateTime('d/m/Y H:i')

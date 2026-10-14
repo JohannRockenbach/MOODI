@@ -659,6 +659,10 @@ class OrderResource extends Resource
                                         ->multiple()
                                         ->options(\App\Models\Discount::where('is_active', true)
                                             ->whereNotNull('name')
+                                            // OBJ-07: el 2x1 (bogo) NO aplica en este
+                                            // flujo simple de pago (requiere desglose por
+                                            // producto); se excluye del selector.
+                                            ->where('type', '!=', 'bogo')
                                             ->pluck('name', 'id'))
                                         ->preload()
                                         ->searchable()

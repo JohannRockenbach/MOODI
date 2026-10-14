@@ -315,6 +315,50 @@
                                 @endif
                             </div>
 
+                            {{-- Fidelización: canje de puntos (solo si la cuenta tiene cliente) --}}
+                            @if ($this->loyaltyCustomer)
+                                <div>
+                                    <label class="mb-2 flex items-center gap-1.5 text-base font-bold uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">
+                                        <x-heroicon-o-star class="h-4 w-4 text-amber-600 dark:text-[#fbbc48]" />
+                                        Puntos de fidelización
+                                    </label>
+                                    <div class="rounded-xl bg-white p-3 dark:bg-[#1c2026]">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-base text-slate-500 dark:text-[#c1c6d5]">
+                                                {{ $this->loyaltyCustomer->name }} ·
+                                                <span class="font-bold text-amber-600 dark:text-[#fbbc48]">{{ $this->loyaltyPointsAvailable() }} puntos</span>
+                                            </span>
+                                        </div>
+                                        <label class="mt-2 flex cursor-pointer items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                wire:model.live="useLoyaltyPoints"
+                                                class="h-5 w-5 rounded border-slate-300 text-amber-500 focus:ring-amber-500 dark:border-[#414753] dark:bg-[#0b0e15]"
+                                            >
+                                            <span class="text-base font-bold text-slate-900 dark:text-[#e0e2ec]">Usar puntos (1 punto = $1)</span>
+                                        </label>
+                                        @if ($useLoyaltyPoints)
+                                            <div class="relative mt-2">
+                                                <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-base font-bold text-amber-600 dark:text-[#fbbc48]">pts</span>
+                                                <input
+                                                    wire:model.live="loyaltyPointsToUse"
+                                                    type="text"
+                                                    inputmode="numeric"
+                                                    placeholder="Cantidad de puntos"
+                                                    class="w-full rounded-lg border-0 bg-slate-50 py-3 pl-12 pr-3 text-right font-mono text-lg font-black text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-amber-500 dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:ring-[#414753]"
+                                                >
+                                            </div>
+                                        @endif
+                                        @if ($this->loyaltyDiscountAmount() > 0)
+                                            <div class="mt-2 flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2">
+                                                <span class="text-base font-bold text-amber-700 dark:text-[#fbbc48]">Descuento por puntos</span>
+                                                <span class="font-mono text-xl font-bold text-amber-700 dark:text-[#fbbc48]">-${{ $this->money($this->loyaltyDiscountAmount()) }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+
                             {{-- SPLIT DE PAGO: filas método + monto (hasta 3) --}}
                             <div>
                                 <label class="mb-2 flex items-center gap-1.5 text-base font-bold uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">

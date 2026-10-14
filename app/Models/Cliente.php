@@ -23,6 +23,7 @@ class Cliente extends Model
         'phone',
         'birthday',
         'fcm_token',
+        'loyalty_points',
     ];
 
     /**
