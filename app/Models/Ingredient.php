@@ -67,6 +67,14 @@ class Ingredient extends Model
     }
 
     /**
+     * Historial de movimientos de stock de este ingrediente (TAREA 2.2).
+     */
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
+    /**
      * Stock actual del ingrediente = SUMA de la cantidad de sus lotes.
      * La columna current_stock fue eliminada de la tabla ingredients.
      */

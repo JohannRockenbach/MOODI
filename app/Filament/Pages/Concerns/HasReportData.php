@@ -196,6 +196,7 @@ trait HasReportData
             'cash' => 'Efectivo',
             'card' => 'Tarjeta',
             'transfer' => 'Transferencia',
+            'qr' => 'QR',
             default => ucfirst((string) ($method ?? 'Sin método')),
         };
     }
@@ -204,6 +205,7 @@ trait HasReportData
         'cash' => 'Efectivo',
         'card' => 'Tarjeta',
         'transfer' => 'Transferencia',
+        'qr' => 'QR',
     ];
 
     public function exportCsv(): StreamedResponse

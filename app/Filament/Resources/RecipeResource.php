@@ -178,4 +178,15 @@ class RecipeResource extends Resource
             'edit' => Pages\EditRecipe::route('/{record}/edit'),
         ];
     }
+
+    /**
+     * El Cocinero NO gestiona las recetas: las LEE desde la página
+     * RecetasCocina (cocina = super_admin/Cocinero). El resource queda para
+     * la gestión del menú (salón/admin).
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
+    }
 }

@@ -14,7 +14,13 @@
                 {{-- ══════════════ HEADER DEL MODAL ══════════════ --}}
                 <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 dark:border-[#272a31]">
                     <div class="flex min-w-0 items-center gap-4">
-                        @if (($this->account['is_takeaway'] ?? false))
+                        @if ($paymentQrConfirmed)
+                            <span class="shrink-0 rounded-xl bg-emerald-500 px-5 py-3 text-2xl font-black text-white shadow-md shadow-emerald-500/20">✅</span>
+                            <div class="min-w-0">
+                                <div class="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">Pago por QR</div>
+                                <div class="mt-0.5 text-base text-slate-500 dark:text-[#c1c6d5]">Cuenta cobrada — escaneá el código</div>
+                            </div>
+                        @elseif (($this->account['is_takeaway'] ?? false))
                             <span class="shrink-0 rounded-xl bg-amber-500 px-5 py-3 font-mono text-2xl font-black text-white shadow-md shadow-amber-500/20 dark:bg-[#fbbc48] dark:text-[#422c00]">🥡</span>
                             <div class="min-w-0">
                                 <div class="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">{{ $this->account['display_label'] ?? 'Para llevar' }}</div>
@@ -86,7 +92,27 @@
                 </div>
 
                 {{-- ══════════════ CONTENIDO SEGÚN MODO Y SELECCIÓN ══════════════ --}}
-                @if (! $this->account)
+                @if ($paymentQrConfirmed)
+                    {{-- ---- PAGO CONFIRMADO: QR con el monto cobrado (futura actualización) ---- --}}
+                    <div class="flex min-h-0 flex-col items-center gap-5 overflow-y-auto px-6 py-8 text-center [scrollbar-width:thin]">
+                        <div class="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-500/15 text-5xl">✅</div>
+                        <div>
+                            <div class="text-2xl font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">Cuenta cobrada</div>
+                            <div class="mt-1 text-base text-slate-500 dark:text-[#c1c6d5]">Venta registrada correctamente.</div>
+                        </div>
+                        <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-[#1c2026]">
+                            <img
+                                src="{{ $paymentQrImage }}"
+                                alt="Código QR de pago"
+                                class="mx-auto h-56 w-56 rounded-xl bg-white p-2"
+                            >
+                        </div>
+                        <div class="font-mono text-4xl font-black tracking-tight text-amber-600 dark:text-[#fbbc48]">${{ $this->money((float) $paymentQrTotal) }}</div>
+                        <p class="max-w-md text-base text-slate-500 dark:text-[#c1c6d5]">
+                            Escaneá el código para ver el aviso: el pago por QR estará disponible en una futura actualización.
+                        </p>
+                    </div>
+                @elseif (! $this->account)
                     @if ($cobroMode === 'nuevo')
                         {{-- ---- Pestaña NUEVO sin comanda en curso: aviso + Cerrar ---- --}}
                         <div class="flex flex-col gap-5 overflow-y-auto px-6 py-6 [scrollbar-width:thin]">
@@ -306,6 +332,7 @@
                                                 <option value="cash">💵 Efectivo</option>
                                                 <option value="card">💳 Tarjeta</option>
                                                 <option value="transfer">🔁 Transferencia</option>
+                                                <option value="qr">📱 QR</option>
                                             </select>
 
                                             <div class="relative min-w-0 flex-1">
@@ -394,12 +421,65 @@
                                     <span class="font-mono text-5xl font-black tracking-tight text-amber-600 dark:text-[#fbbc48]">${{ $this->money($this->accountTotal()) }}</span>
                                 </div>
                             </div>
+
+                            {{-- PAGO POR QR (futura actualización): el QR codifica una URL
+                                 interna opaca (/pago-qr/{token}) y NO procesa pagos. --}}
+                            <div class="rounded-xl bg-white p-4 dark:bg-[#1c2026]">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="flex items-center gap-1.5 text-base font-bold uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">
+                                        <x-heroicon-o-qr-code class="h-4 w-4 text-amber-600 dark:text-[#fbbc48]" />
+                                        Pago por QR
+                                    </label>
+                                    <span class="rounded-full bg-amber-500/10 px-3 py-1 text-sm font-bold text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">Próximamente</span>
+                                </div>
+
+                                @if ($paymentQrRevealed && $paymentQrImage)
+                                    <div class="mt-3 flex flex-col items-center gap-2.5 text-center">
+                                        <img
+                                            src="{{ $paymentQrImage }}"
+                                            alt="Código QR de pago"
+                                            class="h-44 w-44 rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200 dark:bg-[#0b0e15] dark:ring-[#414753]"
+                                        >
+                                        <div class="font-mono text-2xl font-black text-amber-600 dark:text-[#fbbc48]">${{ $this->money((float) $paymentQrTotal) }}</div>
+                                        <p class="max-w-xs text-sm text-slate-500 dark:text-[#c1c6d5]">El pago por QR estará disponible en una futura actualización.</p>
+                                        <button
+                                            wire:click="generatePaymentQr"
+                                            class="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 dark:border-[#414753] dark:text-[#c1c6d5] dark:hover:bg-[#272a31]"
+                                        >
+                                            <x-heroicon-o-arrow-path class="h-4 w-4" />
+                                            Regenerar QR
+                                        </button>
+                                    </div>
+                                @else
+                                    <button
+                                        wire:click="generatePaymentQr"
+                                        class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-500/60 py-3 text-base font-bold text-amber-700 transition-colors hover:bg-amber-500/10 dark:border-[#fbbc48]/50 dark:text-[#fbbc48]"
+                                    >
+                                        <x-heroicon-o-qr-code class="h-5 w-5" />
+                                        Generar QR
+                                    </button>
+                                    <p class="mt-2 text-center text-sm text-slate-400 dark:text-[#c1c6d5]/70">
+                                        Generá el código para escanear. El pago por QR estará disponible en una futura actualización.
+                                    </p>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 @endif
 
                 {{-- ══════════════ FOOTER: ACCIONES ══════════════ --}}
-                @if ($this->account)
+                @if ($paymentQrConfirmed)
+                    {{-- Post-cobro: el QR queda visible; "Cerrar" cierra el modal y limpia el QR. --}}
+                    <div class="flex gap-3 border-t border-slate-100 px-6 py-4 dark:border-[#272a31]">
+                        <button
+                            wire:click="closeQr"
+                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-4 text-lg font-bold text-white shadow-lg shadow-amber-500/20 transition-all hover:bg-amber-400 active:scale-[0.99] dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
+                        >
+                            <x-heroicon-o-check-circle class="h-6 w-6" />
+                            Cerrar
+                        </button>
+                    </div>
+                @elseif ($this->account)
                     <div class="flex gap-3 border-t border-slate-100 px-6 py-4 dark:border-[#272a31]">
                         <button
                             wire:click="cancelar"

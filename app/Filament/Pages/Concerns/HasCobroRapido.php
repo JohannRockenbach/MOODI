@@ -64,7 +64,7 @@ trait HasCobroRapido
     // Modalidad del draft: 'salon' | 'para_llevar'.
     public string $orderType = 'salon';
 
-    // Método por defecto de la primera fila del SPLIT (cash|card|transfer).
+    // Método por defecto de la primera fila del SPLIT (cash|card|transfer|qr).
     public string $paymentMethod = 'cash';
 
     // Descuentos activos seleccionados (ids) — patrón de TableMap.
@@ -73,9 +73,23 @@ trait HasCobroRapido
     // Monto recibido en efectivo (input grande del TPV).
     public string $montoRecibido = '';
 
-    // SPLIT de pago: filas ['method' => cash|card|transfer, 'amount' => '...']
+    // SPLIT de pago: filas ['method' => cash|card|transfer|qr, 'amount' => '...']
     // (hasta 3). Por defecto UNA fila con [método = paymentMethod, monto = total].
     public array $payments = [];
+
+    // PAGO POR QR (futura actualización): el QR codifica una URL interna
+    // opaca (/pago-qr/{token}) y NO procesa pagos. Antes de cobrar se puede
+    // revelar con "Generar QR"; tras el cobro exitoso el modal queda abierto
+    // mostrando el QR con el monto cobrado.
+    public bool $paymentQrRevealed = false;    // ¿QR visible en el bloque del modal?
+
+    public bool $paymentQrConfirmed = false;   // ¿Cobro confirmado? (vista QR post-cobro)
+
+    public ?string $paymentQrImage = null;     // Data URI PNG del QR.
+
+    public ?string $paymentQrToken = null;     // Token opaco (sha256, 64 hex).
+
+    public ?float $paymentQrTotal = null;      // Monto mostrado junto al QR.
 
     // ─────────────────────────────────────────────────────────────
     // APERTURA / CIERRE
@@ -120,6 +134,9 @@ trait HasCobroRapido
         // Invalidar computeds ANTES de re-inicializar el estado de pago (que
         // lee el total FRESCO de la cuenta recién armada).
         unset($this->account, $this->chargeableTables, $this->takeawayOrders);
+
+        // Reset del QR: cada apertura del modal parte sin QR visible.
+        $this->resetPaymentQr();
 
         $this->resetCobroState();
         $this->open = true;
@@ -191,6 +208,17 @@ trait HasCobroRapido
      */
     public function cancelar(): void
     {
+        $this->open = false;
+    }
+
+    /**
+     * Cerrar la vista de QR CONFIRMADO post-cobro: cierra el modal y limpia
+     * el estado del QR (el cobro ya se registró; la página refresca su estado
+     * vía el evento 'comanda-cobrada').
+     */
+    public function closeQr(): void
+    {
+        $this->resetPaymentQr();
         $this->open = false;
     }
 
@@ -675,7 +703,7 @@ trait HasCobroRapido
         }
 
         foreach ($this->payments as $row) {
-            if (! in_array($row['method'] ?? '', ['cash', 'card', 'transfer'], true)) {
+            if (! in_array($row['method'] ?? '', ['cash', 'card', 'transfer', 'qr'], true)) {
                 return false;
             }
 
@@ -708,6 +736,54 @@ trait HasCobroRapido
         $received = $this->receivedAmount();
 
         return $received > 0 && $received < $cashTotal;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PAGO POR QR (futura actualización)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Generar/revelar el QR del bloque "Pago por QR" ANTES de cobrar (modal
+     * abierto). El token es PROVISIONAL y opaco: la ruta pública /pago-qr/
+     * solo muestra el aviso de futura actualización, sin datos de la venta.
+     */
+    public function generatePaymentQr(): void
+    {
+        if (! $this->account) {
+            return;
+        }
+
+        $total = round($this->accountTotal(), 2);
+        $identifier = ($this->selectedOrderId ? 'order:'.$this->selectedOrderId : 'draft:').Str::random(24);
+
+        $this->setPaymentQr($total, $identifier, confirmed: false);
+    }
+
+    /**
+     * Fijar el estado del QR a partir del payload del servicio (imagen,
+     * token y monto). `confirmed=true` → vista post-cobro del modal.
+     */
+    private function setPaymentQr(float $total, string $saleIdentifier, bool $confirmed): void
+    {
+        $payload = app(\App\Services\PaymentQrService::class)->generate($total, $saleIdentifier);
+
+        $this->paymentQrImage = $payload['image'];
+        $this->paymentQrToken = $payload['token'];
+        $this->paymentQrTotal = round($total, 2);
+        $this->paymentQrRevealed = true;
+        $this->paymentQrConfirmed = $confirmed;
+    }
+
+    /**
+     * Reset del estado del QR (apertura del modal / post-cobro).
+     */
+    private function resetPaymentQr(): void
+    {
+        $this->paymentQrRevealed = false;
+        $this->paymentQrConfirmed = false;
+        $this->paymentQrImage = null;
+        $this->paymentQrToken = null;
+        $this->paymentQrTotal = null;
     }
 
     #[Computed]
@@ -838,9 +914,10 @@ trait HasCobroRapido
 
         $subtotal = $this->accountSubtotal();
         $discountAmount = $this->discountAmountValue();
+        $createdSaleIds = [];
 
         try {
-            DB::transaction(function () use ($cajaAbierta, $subtotal, $discountAmount) {
+            DB::transaction(function () use ($cajaAbierta, $subtotal, $discountAmount, &$createdSaleIds) {
                 $ordersToCharge = collect();
                 $table = null;
                 $draftOrderIds = [];
@@ -899,13 +976,15 @@ trait HasCobroRapido
                 // seleccionado). El draft cobrado directo NO pasa a completed:
                 // queda 'pending' para que la cocina lo vea y lo prepare.
                 foreach ($ordersToCharge as $order) {
-                    $this->chargeOrder(
+                    $sale = $this->chargeOrder(
                         $order,
                         $cajaAbierta,
                         $subtotal,
                         $discountAmount,
                         complete: ! in_array($order->id, $draftOrderIds, true),
                     );
+
+                    $createdSaleIds[] = $sale->id;
                 }
 
                 // Liberar la mesa solo si se cobró una cuenta de MESA. El
@@ -950,11 +1029,19 @@ trait HasCobroRapido
                 : 'Se cobró el pedido correctamente.')
             ->send();
 
-        // La página limpia/refresca su estado (CrearPedido → clearCart,
-        // TableMap → loadTables).
-        $this->dispatch('comanda-cobrada');
+        // Pago por QR (futura actualización): con la venta REAL creada se fija
+        // el QR (token opaco derivado de los ids de las ventas) y el modal
+        // queda ABIERTO mostrando el QR con el monto cobrado. Cerra el modal
+        // (Cancelar) para continuar.
+        $saleIdentifier = $createdSaleIds !== []
+            ? implode('|', $createdSaleIds)
+            : 'cobro:'.Str::random(24);
 
-        $this->resetPanel();
+        $this->setPaymentQr(round($this->accountTotal(), 2), $saleIdentifier, confirmed: true);
+
+        // La página limpia/refresca su estado (CrearPedido → clearCart,
+        // TableMap → loadTables). El modal NO se resetea: queda con el QR.
+        $this->dispatch('comanda-cobrada');
     }
 
     /**
@@ -1038,7 +1125,7 @@ trait HasCobroRapido
      * @param  bool  $complete  false → el pedido NO pasa a 'completed'
      *                          (draft cobrado directo: queda pending en cocina).
      */
-    private function chargeOrder(Order $order, Caja $caja, float $subtotal, float $discountAmount, bool $complete = true): void
+    private function chargeOrder(Order $order, Caja $caja, float $subtotal, float $discountAmount, bool $complete = true): Sale
     {
         $order->loadMissing('orderProducts');
 
@@ -1111,6 +1198,8 @@ trait HasCobroRapido
         if ($complete) {
             $order->update(['status' => 'completed']);
         }
+
+        return $sale;
     }
 
     /**
@@ -1218,7 +1307,7 @@ trait HasCobroRapido
         }
 
         foreach ($payments as $row) {
-            if (! in_array($row['method'] ?? '', ['cash', 'card', 'transfer'], true)) {
+            if (! in_array($row['method'] ?? '', ['cash', 'card', 'transfer', 'qr'], true)) {
                 return false;
             }
 
@@ -1302,6 +1391,7 @@ trait HasCobroRapido
             'cash' => 'Efectivo',
             'card' => 'Tarjeta',
             'transfer' => 'Transferencia',
+            'qr' => 'QR',
             default => ucfirst($method),
         };
     }

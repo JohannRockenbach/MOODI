@@ -367,6 +367,16 @@ class Sale extends Model
             }
         });
 
+        // Auditoría (TAREA 2.1): creación de venta al cobrar. Punto ÚNICO que
+        // cubre HasCobroRapido::chargeOrder, OrderResource::registerPayment y
+        // cualquier otro creador. Contexto mínimo SIN datos del cliente.
+        static::created(function (Sale $sale) {
+            \App\Services\AuditService::record('sale.created', $sale, [
+                'caja_id' => $sale->caja_id,
+                'total_amount' => $sale->total_amount,
+            ]);
+        });
+
         static::saving(function ($sale) {
             $max = 99999999.99;
             if (! is_null($sale->total_amount) && ($sale->total_amount < 0 || $sale->total_amount > $max)) {

@@ -16,8 +16,10 @@ class OrderPolicy
 
     public function viewAny(User $user): bool
     {
-        // Sala y cocina: Mozo, Cocinero y super_admin. Cajero no opera pedidos.
-        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cocinero']);
+        // Salón: Mozo y super_admin gestionan pedidos. El Cocinero NO ve el
+        // listado de pedidos (ni por URL): su mundo es Cocina + Recetas.
+        // Cajero tampoco opera pedidos.
+        return $user->hasAnyRole(['super_admin', 'Mozo']);
     }
 
     public function view(User $user, Order $order): bool

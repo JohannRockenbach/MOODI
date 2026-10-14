@@ -25,8 +25,8 @@
                         <div class="hidden items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 dark:bg-[#0b0e15] md:flex">
                             <x-heroicon-o-clock class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
                             <div class="text-right leading-tight">
-                                <span class="block font-mono text-xl font-black text-slate-900 dark:text-[#e0e2ec]">{{ now()->format('H:i') }}</span>
-                                <span class="block text-sm font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ now()->format('l d/m') }} hs</span>
+                                <span class="block font-mono text-xl font-black text-slate-900 dark:text-[#e0e2ec]">{{ now()->locale('es')->translatedFormat('H:i') }}</span>
+                                <span class="block text-sm font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ now()->locale('es')->translatedFormat('l d/m') }} hs</span>
                             </div>
                         </div>
 
@@ -101,7 +101,7 @@
                                         </div>
                                         <div class="shrink-0 text-right">
                                             <span class="block font-mono text-base font-bold text-slate-500 dark:text-[#c1c6d5]">{{ $order->created_at->format('H:i') }}</span>
-                                            <span class="block text-sm font-semibold text-amber-600 dark:text-[#fbbc48]">⏱ {{ $order->created_at->diffForHumans(null, true) }}</span>
+                                            <span class="block text-sm font-semibold text-amber-600 dark:text-[#fbbc48]">⏱ {{ $order->created_at->locale('es')->diffForHumans(null, true) }}</span>
                                         </div>
                                     </div>
 
@@ -128,6 +128,13 @@
                                             class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-base font-bold text-white shadow-sm transition-all hover:bg-amber-400 active:scale-[0.98] dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
                                         >
                                             ▶️ EMPEZAR
+                                        </button>
+                                        <button
+                                            wire:click="reportDelay({{ $order->id }})"
+                                            wire:loading.attr="disabled"
+                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/50 py-2.5 text-base font-bold text-amber-700 transition-all hover:bg-amber-50 active:scale-[0.98] dark:border-[#fbbc48]/40 dark:text-[#fbbc48] dark:hover:bg-[#fbbc48]/10"
+                                        >
+                                            ⏱️ REPORTAR RETRASO
                                         </button>
                                         <button
                                             wire:click="cancelOrder({{ $order->id }})"
@@ -177,7 +184,7 @@
                                         </div>
                                         <div class="shrink-0 text-right">
                                             <span class="block font-mono text-base font-bold text-slate-500 dark:text-[#c1c6d5]">{{ $order->created_at->format('H:i') }}</span>
-                                            <span class="block text-sm font-semibold text-amber-600 dark:text-[#fbbc48]">⏱ {{ $order->created_at->diffForHumans(null, true) }}</span>
+                                            <span class="block text-sm font-semibold text-amber-600 dark:text-[#fbbc48]">⏱ {{ $order->created_at->locale('es')->diffForHumans(null, true) }}</span>
                                         </div>
                                     </div>
 
@@ -204,6 +211,13 @@
                                             class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-base font-bold text-white shadow-sm transition-all hover:bg-amber-400 active:scale-[0.98] dark:bg-[#fbbc48] dark:text-[#422c00] dark:hover:bg-[#ffdeac]"
                                         >
                                             ✅ LISTO
+                                        </button>
+                                        <button
+                                            wire:click="reportDelay({{ $order->id }})"
+                                            wire:loading.attr="disabled"
+                                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/50 py-2.5 text-base font-bold text-amber-700 transition-all hover:bg-amber-50 active:scale-[0.98] dark:border-[#fbbc48]/40 dark:text-[#fbbc48] dark:hover:bg-[#fbbc48]/10"
+                                        >
+                                            ⏱️ REPORTAR RETRASO
                                         </button>
                                         <button
                                             wire:click="cancelOrder({{ $order->id }})"
@@ -253,7 +267,7 @@
                                         </div>
                                         <div class="shrink-0 text-right">
                                             <span class="block font-mono text-base font-bold text-slate-500 dark:text-[#c1c6d5]">{{ $order->created_at->format('H:i') }}</span>
-                                            <span class="block text-sm font-semibold text-green-700 dark:text-green-400">⏱ {{ $order->created_at->diffForHumans(null, true) }}</span>
+                                            <span class="block text-sm font-semibold text-green-700 dark:text-green-400">⏱ {{ $order->created_at->locale('es')->diffForHumans(null, true) }}</span>
                                         </div>
                                     </div>
 
@@ -291,6 +305,72 @@
                                 </div>
                             @endforelse
                         </div>
+                    </section>
+
+                </div>
+
+                {{-- ══════════════ PANELES DE STOCK: REPOSICIÓN + PROBLEMAS ══════════════ --}}
+                <div class="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+
+                    {{-- ─────────── STOCK BAJO / SOLICITAR REPOSICIÓN 📦 ─────────── --}}
+                    <section class="flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#414753] dark:bg-[#1c2026]">
+                        <header class="flex items-center justify-between gap-2">
+                            <h2 class="flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
+                                <span class="text-2xl leading-none">📦</span> Stock bajo
+                            </h2>
+                            <span class="rounded-full bg-amber-500/10 px-3 py-1 font-mono text-base font-black text-amber-700 dark:bg-[#fbbc48]/10 dark:text-[#fbbc48]">{{ $lowStockIngredients->count() }}</span>
+                        </header>
+
+                        <div class="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1 [scrollbar-width:thin]">
+                            @forelse ($lowStockIngredients as $ingredient)
+                                <div wire:key="stock-{{ $ingredient->id }}" class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-[#0b0e15]">
+                                    <div class="min-w-0">
+                                        <span class="block truncate text-base font-bold text-slate-900 dark:text-[#e0e2ec]">{{ $ingredient->name }}</span>
+                                        <span class="block text-sm font-semibold text-red-700 dark:text-[#ffb4ab]">
+                                            Disponible: {{ $ingredient->availableStock() }} {{ $ingredient->measurement_unit }}
+                                        </span>
+                                    </div>
+                                    <button
+                                        wire:click="requestRestock({{ $ingredient->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="shrink-0 rounded-xl border border-amber-500/50 px-3 py-2 text-sm font-bold text-amber-700 transition-all hover:bg-amber-50 active:scale-[0.98] dark:border-[#fbbc48]/40 dark:text-[#fbbc48] dark:hover:bg-[#fbbc48]/10"
+                                    >
+                                        🔄 SOLICITAR REPOSICIÓN
+                                    </button>
+                                </div>
+                            @empty
+                                <div class="rounded-xl border border-dashed border-slate-200 py-8 text-center dark:border-[#414753]">
+                                    <span class="text-3xl">✅</span>
+                                    <p class="mt-2 text-base font-bold text-slate-600 dark:text-[#e0e2ec]">Todo en orden</p>
+                                    <p class="mt-1 text-sm text-slate-400 dark:text-[#c1c6d5]/70">No hay ingredientes con stock bajo.</p>
+                                </div>
+                            @endforelse
+                        </div>
+                    </section>
+
+                    {{-- ─────────── REPORTAR PROBLEMA DE STOCK ⚠️ ─────────── --}}
+                    <section class="flex min-w-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#414753] dark:bg-[#1c2026]">
+                        <header>
+                            <h2 class="flex items-center gap-2 text-lg font-black uppercase tracking-wide text-slate-900 dark:text-[#e0e2ec]">
+                                <span class="text-2xl leading-none">⚠️</span> Reportar problema de stock
+                            </h2>
+                            <p class="mt-1 text-sm font-semibold text-slate-500 dark:text-[#c1c6d5]/70">Describí el problema (ingrediente faltante, calidad, etc.). Se notifica a los administradores.</p>
+                        </header>
+
+                        <textarea
+                            wire:model.defer="stockProblemText"
+                            rows="3"
+                            placeholder="Ej.: falta pan de hamburguesa para el pedido de la mesa 4"
+                            class="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-base font-semibold text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30 dark:border-[#414753] dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:placeholder:text-[#c1c6d5]/50"
+                        ></textarea>
+
+                        <button
+                            wire:click="reportStockProblem"
+                            wire:loading.attr="disabled"
+                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 py-3 text-base font-bold text-red-700 transition-all hover:bg-red-100 active:scale-[0.98] dark:bg-[#93000a]/20 dark:text-[#ffb4ab] dark:hover:bg-[#93000a]/30"
+                        >
+                            🚨 ENVIAR REPORTE
+                        </button>
                     </section>
 
                 </div>

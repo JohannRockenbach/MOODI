@@ -240,4 +240,16 @@ class ProductResource extends Resource
                     SoftDeletingScope::class,
                 ]);
         }
+
+    /**
+     * El Cocinero NO gestiona el catálogo: su lectura de productos/recetas
+     * vive en la página RecetasCocina (cocina = super_admin/Cocinero). El
+     * resource "Productos" queda para la gestión (salón/admin), por lo que
+     * se oculta del menú y del index por URL para el rol Cocinero.
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
+    }
 }

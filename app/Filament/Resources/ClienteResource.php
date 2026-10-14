@@ -155,4 +155,16 @@ class ClienteResource extends Resource
             SoftDeletingScope::class,
         ]);
     }
+
+    /**
+     * El Cocinero solo opera Cocina + Recetas: queda fuera de la gestión de
+     * clientes (administración). El resto de roles conserva su acceso
+     * actual (la página no tiene policy propia: Filament permite por defecto
+     * a los usuarios autenticados).
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
+    }
 }

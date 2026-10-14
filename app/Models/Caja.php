@@ -98,6 +98,18 @@ class Caja extends Model
                 throw \Illuminate\Validation\ValidationException::withMessages($messages);
             }
         });
+
+        // Auditoría (TAREA 2.1): cierre de caja. Se registra SOLO en la
+        // transición abierta → cerrada (ediciones de caja abierta no auditan).
+        static::updated(function (self $caja) {
+            if ($caja->wasChanged('status') && $caja->status === 'cerrada') {
+                \App\Services\AuditService::record('caja.closed', $caja, [
+                    'final_balance' => $caja->final_balance,
+                    'total_sales' => $caja->total_sales,
+                    'closing_user_id' => $caja->closing_user_id,
+                ]);
+            }
+        });
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Actions\Sales\AnnulSaleAction;
+use App\Actions\Sales\IssueInvoiceAction;
 use App\Actions\Sales\RestoreSaleAnnulmentAction;
 use App\Filament\Resources\SaleResource\Pages;
 use App\Models\Caja;
@@ -88,6 +89,7 @@ class SaleResource extends Resource implements HasShieldPermissions
                             'cash' => 'Efectivo',
                             'card' => 'Tarjeta',
                             'transfer' => 'Transferencia',
+                            'qr' => 'QR',
                         ])
                         ->required()
                         ->native(false)
@@ -192,18 +194,21 @@ class SaleResource extends Resource implements HasShieldPermissions
                         'cash' => 'heroicon-m-banknotes',
                         'card' => 'heroicon-m-credit-card',
                         'transfer' => 'heroicon-m-building-library',
+                        'qr' => 'heroicon-m-qr-code',
                         default => 'heroicon-m-wallet',
                     })
                     ->color(fn (string $state): string => match ($state) {
                         'cash' => 'success',
                         'card' => 'info',
                         'transfer' => 'warning',
+                        'qr' => 'primary',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'cash' => 'Efectivo',
                         'card' => 'Tarjeta',
                         'transfer' => 'Transferencia',
+                        'qr' => 'QR',
                         default => ucfirst($state),
                     }),
 
@@ -281,6 +286,7 @@ class SaleResource extends Resource implements HasShieldPermissions
                         'cash' => 'Efectivo',
                         'card' => 'Tarjeta',
                         'transfer' => 'Transferencia',
+                        'qr' => 'QR',
                     ]),
 
                 // Filtro por Caja
@@ -406,6 +412,52 @@ class SaleResource extends Resource implements HasShieldPermissions
                     ->modalCancelAction(false)
                     ->modalWidth('5xl')
                     ->modalContent(fn ($record): View => view('filament.sales.view-modal', ['sale' => $record->loadMissing(['order.products', 'cashier', 'order.customer'])])),
+                Action::make('emitir_comprobante')
+                    ->label('Emitir comprobante')
+                    ->icon('heroicon-o-document-plus')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Emitir comprobante')
+                    ->extraAttributes(['aria-label' => 'Emitir comprobante'])
+                    ->visible(fn (Sale $record): bool => $record->status === 'paid' && ! $record->isAnnulled() && $record->invoice === null && Gate::allows('emitInvoice', $record))
+                    ->action(function (Sale $record): void {
+                        $user = Auth::user();
+
+                        // Defensa en profundidad: el bypass de la UI no puede emitir.
+                        abort_unless($user !== null && Gate::forUser($user)->allows('emitInvoice', $record), 403);
+
+                        try {
+                            $invoice = app(IssueInvoiceAction::class)($record, $user);
+
+                            Notification::make()
+                                ->title('Comprobante emitido')
+                                ->body('Número: '.$invoice->cae_number)
+                                ->success()
+                                ->send();
+                        } catch (\DomainException $e) {
+                            Notification::make()
+                                ->title('No se pudo emitir')
+                                ->body($e->getMessage())
+                                ->warning()
+                                ->send();
+                        }
+                    }),
+                Action::make('ver_comprobante')
+                    ->label('Ver comprobante')
+                    ->icon('heroicon-o-document-text')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Ver comprobante')
+                    ->extraAttributes(['aria-label' => 'Ver comprobante'])
+                    ->visible(fn (Sale $record): bool => $record->invoice !== null)
+                    ->modalHeading(fn (Sale $record): string => 'Comprobante '.$record->invoice->cae_number)
+                    ->modalSubmitAction(false)
+                    ->modalCancelAction(false)
+                    ->modalWidth('4xl')
+                    ->modalContent(fn (Sale $record): View => view('filament.sales.invoice-modal', [
+                        'invoice' => $record->invoice,
+                        'sale' => $record->loadMissing(['order', 'restaurant', 'caja']),
+                    ])),
                 Tables\Actions\EditAction::make()
                     ->label('Editar venta')
                     ->icon('heroicon-o-pencil-square')
@@ -439,6 +491,7 @@ class SaleResource extends Resource implements HasShieldPermissions
                 'order.waiter:id,name',
                 'cashier:id,name',
                 'annulledByUser:id,name',
+                'invoice',
             ]);
 
         /** @var \App\Models\User|null $user */

@@ -32,6 +32,17 @@ class OrderResource extends Resource
     protected static ?string $navigationLabel = 'Pedidos';
 
     /**
+     * La navegación de la tabla queda oculta: la pantalla Stitch
+     * (GestionPedidos) la reemplaza en el menú y re-registra el item
+     * "Cocina" (ver GestionPedidos::getNavigationItems). El resource sigue
+     * accesible por URL (edición y KDS).
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
+    /**
      * Items de navegación: "Pedidos" (listado) + "Cocina" (KDS).
      * La cocina era solo accesible por URL directa; ahora aparece en el menú
      * para super_admin y Cocinero.
@@ -601,9 +612,18 @@ class OrderResource extends Resource
                     ->label('Cobrar')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
-                    ->hidden(fn (Order $record): bool => $record->status === 'cancelled' || // No cobrar pedidos cancelados
-                        $record->sale()->exists() // No cobrar si ya tiene una venta registrada
-                    )
+                    ->hidden(function (Order $record): bool {
+                        $user = auth()->user();
+
+                        // Autorización (decisión del dueño 2026-09-17): solo
+                        // super_admin, Cajero y Mozo pueden cobrar. Cocinero NO.
+                        // auth()->user() puede ser null en contexto de tabla.
+                        $canCharge = $user !== null && $user->hasAnyRole(['super_admin', 'Cajero', 'Mozo']);
+
+                        return $record->status === 'cancelled' // No cobrar pedidos cancelados
+                            || $record->sale()->exists() // No cobrar si ya tiene una venta registrada
+                            || ! $canCharge;
+                    })
                     ->requiresConfirmation()
                     ->modalHeading('Registrar Pago')
                     ->modalDescription('Se creará una venta asociada a este pedido. El estado del pedido no cambiará.')
@@ -624,6 +644,7 @@ class OrderResource extends Resource
                                             'cash' => 'Efectivo',
                                             'card' => 'Tarjeta',
                                             'transfer' => 'Transferencia',
+                                            'qr' => 'QR',
                                         ])
                                         ->required()
                                         ->native(false)
@@ -692,6 +713,16 @@ class OrderResource extends Resource
                         ];
                     })
                     ->action(function (Order $record, array $data): void {
+                        // Defensa en profundidad: re-validar el rol dentro de la
+                        // acción (decisión del dueño 2026-09-17: super_admin,
+                        // Cajero y Mozo; Cocinero NO). Consistente con
+                        // HasCobroRapido::cobrar(). No se usa can('create', Sale)
+                        // porque SalePolicy excluye al Mozo.
+                        abort_unless(
+                            auth()->user()?->hasAnyRole(['super_admin', 'Cajero', 'Mozo']),
+                            403
+                        );
+
                         // Buscar la caja abierta
                         $caja = \App\Models\Caja::where('restaurant_id', 1)
                             ->where('status', 'abierta')

@@ -31,6 +31,7 @@
         'cash' => 'Efectivo',
         'card' => 'Tarjeta',
         'transfer' => 'Transferencia',
+        'qr' => 'QR',
         default => ucfirst((string) $sale->payment_method),
     };
 

@@ -58,4 +58,14 @@ class SalePolicy
     {
         return $user->hasRole('super_admin');
     }
+
+    /**
+     * Emisión de comprobante de venta (CU-001.12).
+     * Solo super_admin: operación de backoffice sensible, consistente con
+     * annul / restoreAnnulled / update (todas super_admin only).
+     */
+    public function emitInvoice(User $user, Sale $sale): bool
+    {
+        return $user->hasRole('super_admin');
+    }
 }

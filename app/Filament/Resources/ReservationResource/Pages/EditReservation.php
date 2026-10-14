@@ -6,11 +6,20 @@ use App\Filament\Resources\ReservationResource;
 use App\Models\Reservation;
 use App\Services\ReservationService;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Database\Eloquent\Model;
 
 class EditReservation extends EditRecord
 {
     protected static string $resource = ReservationResource::class;
+
+    protected static string $view = 'filament.resources.reservation-resource.pages.edit-reservation';
+
+    /**
+     * Edición operativa a ancho completo, con el lenguaje visual Stitch del
+     * padre (GestionReservas — "Restaurante El Fogón").
+     */
+    protected ?string $maxContentWidth = MaxWidth::Full->value;
     
     // Redirigir a la lista después de editar
     protected function getRedirectUrl(): string

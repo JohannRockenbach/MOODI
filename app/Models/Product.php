@@ -223,4 +223,21 @@ class Product extends Model
 
         return true;
     }
+
+    /**
+     * Auditoría (TAREA 2.1): cambio de precio. Solo cuando el precio CAMBIÓ
+     * de verdad (los updates de stock/fecha no escriben auditoría). Registra
+     * antes/después sin datos sensibles.
+     */
+    protected static function booted(): void
+    {
+        static::updated(function (Product $product) {
+            if ($product->wasChanged('price')) {
+                \App\Services\AuditService::record('product.price_changed', $product, [
+                    'old_price' => $product->getOriginal('price'),
+                    'new_price' => $product->price,
+                ]);
+            }
+        });
+    }
 }

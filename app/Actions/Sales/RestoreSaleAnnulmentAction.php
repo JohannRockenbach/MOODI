@@ -4,6 +4,7 @@ namespace App\Actions\Sales;
 
 use App\Models\Sale;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\Gate;
 
 class RestoreSaleAnnulmentAction
@@ -12,6 +13,16 @@ class RestoreSaleAnnulmentAction
     {
         Gate::forUser($user)->authorize('restoreAnnulled', $sale);
 
-        return $sale->restoreAnnulment();
+        // Capturar el motivo previo ANTES de restaurar (lo limpia el modelo).
+        $previousReason = $sale->annulled_reason;
+
+        $restored = $sale->restoreAnnulment();
+
+        // Auditoría (TAREA 2.1): punto único de restauración, con usuario.
+        AuditService::record('sale.restored', $restored, [
+            'motivo_previo' => $previousReason,
+        ], $user);
+
+        return $restored;
     }
 }
