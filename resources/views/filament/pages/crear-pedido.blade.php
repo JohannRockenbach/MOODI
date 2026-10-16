@@ -104,6 +104,24 @@
                     </div>
 
                     <div class="flex items-center gap-1.5">
+                        {{-- OBJ-04: comensales (pax) del salón. Solo para SUGERIR
+                             mesas libres por capacidad en el modal (no bloquea). --}}
+                        @if ($this->orderType === \App\Filament\Pages\CrearPedido::TYPE_SALON)
+                            <div class="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 dark:bg-[#272a31]">
+                                <x-heroicon-o-users class="h-5 w-5 text-amber-600 dark:text-[#fbbc48]" />
+                                <label for="guest-count" class="text-sm font-semibold text-slate-600 dark:text-[#c1c6d5]">Comensales</label>
+                                <input
+                                    id="guest-count"
+                                    type="number"
+                                    wire:model.live.debounce.300ms="guestCount"
+                                    min="0"
+                                    max="99"
+                                    inputmode="numeric"
+                                    placeholder="—"
+                                    class="w-16 rounded-md border-0 bg-white px-2 py-1 text-center text-base font-bold text-slate-900 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 focus:ring-amber-500 dark:bg-[#0b0e15] dark:text-[#e0e2ec] dark:ring-[#414753]"
+                                />
+                            </div>
+                        @endif
                         <button
                             wire:click="openTableModal"
                             @disabled($tableLockedFromMap)
@@ -416,7 +434,7 @@
 
                     {{-- Grilla táctil de mesas agrupada por ubicación --}}
                     @php
-                        $groupedTables = $this->tables->groupBy('location')->sortKeys();
+                        $groupedTables = $this->suggestedTables->groupBy('location')->sortKeys();
                         $statusStyles = [
                             'Disponible' => ['dot' => 'bg-green-500', 'label' => 'text-green-700 dark:text-green-400', 'border' => 'border-green-500/40 dark:border-green-400/40'],
                             'Ocupada' => ['dot' => 'bg-red-500', 'label' => 'text-red-700 dark:text-red-400', 'border' => 'border-red-500/40 dark:border-red-400/40'],
@@ -437,13 +455,18 @@
                                             @php
                                                 $style = $statusStyles[$table['status_label']] ?? $statusStyles['Disponible'];
                                                 $selected = (int) $this->newTableId === (int) $table['id'];
+                                                $suggested = ! empty($table['is_suggested']);
                                             @endphp
                                             <button
                                             wire:click="$set('newTableId', {{ $table['id'] }})"
-                                            class="flex flex-col items-center gap-1 rounded-xl border-2 bg-slate-50 px-3 py-5 text-center transition-all hover:bg-slate-100 active:scale-[0.97] dark:bg-[#0b0e15] dark:hover:bg-[#272a31] {{ $selected ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-[#fbbc48] dark:ring-offset-[#1c2026] border-amber-500 dark:border-[#fbbc48]' : $style['border'] . ' border-transparent' }}"
+                                            class="relative flex flex-col items-center gap-1 rounded-xl border-2 px-3 py-5 text-center transition-all active:scale-[0.97] {{ $selected ? 'bg-amber-50 ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:bg-[#422c00]/20 dark:ring-[#fbbc48] dark:ring-offset-[#1c2026] border-amber-500 dark:border-[#fbbc48]' : ($suggested ? 'bg-amber-50 border-amber-500/70 hover:bg-amber-100 dark:bg-[#422c00]/15 dark:border-[#fbbc48]/70 dark:hover:bg-[#422c00]/25' : 'bg-slate-50 hover:bg-slate-100 dark:bg-[#0b0e15] dark:hover:bg-[#272a31] ' . $style['border'] . ' border-transparent') }}"
                                         >
+                                            @if ($suggested)
+                                                <span class="absolute right-2 top-2 rounded bg-amber-500 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white dark:bg-[#fbbc48] dark:text-[#422c00]">Sugerida</span>
+                                            @endif
                                             <span class="font-mono text-5xl font-black leading-none text-slate-900 dark:text-[#e0e2ec]">{{ $table['number'] }}</span>
                                             <span class="text-lg font-semibold text-slate-500 dark:text-[#c1c6d5]">{{ $table['location'] }}</span>
+                                            <span class="text-base font-bold text-slate-600 dark:text-[#c1c6d5]">Cap. {{ $table['capacity'] }} pax</span>
                                             <span class="mt-1 flex items-center gap-1 text-lg font-bold {{ $style['label'] }}">
                                                 <span class="inline-block h-2.5 w-2.5 rounded-full {{ $style['dot'] }}"></span>
                                                 {{ $table['status_label'] }}

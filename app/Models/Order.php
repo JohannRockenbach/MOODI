@@ -27,10 +27,12 @@ class Order extends Model
         'delivery_phone',
         'customer_name',
         'customer_id',
+        'guest_count',
     ];
 
     protected $casts = [
         'stock_deducted' => 'boolean',
+        'guest_count' => 'integer',
     ];
 
     /**

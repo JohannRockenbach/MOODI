@@ -110,6 +110,10 @@ class CrearPedido extends Page
 
     public ?int $newTableId = null;
 
+    // OBJ-04: comensales (pax) del pedido de salón. Opcional; se usa solo para
+    // SUGERIR mesas libres por capacidad en el modal (no bloquea la comanda).
+    public ?int $guestCount = null;
+
     public function mount(): void
     {
         $tableId = (int) request()->query('table_id', 0);
@@ -278,24 +282,60 @@ class CrearPedido extends Page
     }
 
     /**
-     * Mesas del restaurante 1 para el selector/modal (con etiqueta de estado).
+     * Mesas del restaurante 1 para el modal de cambio de mesa, ordenadas para
+     * SUGERIR mesas libres por comensales (OBJ-04).
+     *
+     * DECISIÓN DE ALCANCE (documentada): `guest_count` se usa SOLO para sugerir
+     * — nunca para bloquear la elección ni la ocupación. La mesa la elige el
+     * mozo y `Table::occupy()` la ocupa al confirmar. Reglas de orden/marcado:
+     *
+     * - Con `guestCount > 0`: primero las mesas LIBRES (available) con
+     *   `capacity >= guestCount` (ordenadas por capacity asc), después el
+     *   resto. Cada mesa lleva el flag `is_suggested` = true solo si es libre
+     *   y alcanza para los comensales.
+     * - Sin comensales (null / 0): comportamiento actual — todas las mesas en
+     *   su orden natural, todas con `is_suggested = false`.
+     * - Si pax supera la capacidad de la mesa más grande: no se sugiere
+     *   ninguna y se listan todas las libres normalmente (no bloquea).
      */
-    public function getTablesProperty(): Collection
+    public function getSuggestedTablesProperty(): Collection
     {
-        return Table::where('restaurant_id', 1)
+        $pax = (int) ($this->guestCount ?? 0);
+
+        $tables = Table::where('restaurant_id', 1)
             ->orderBy('number')
             ->get()
             ->map(fn (Table $table) => [
                 'id' => $table->id,
                 'number' => $table->number,
                 'location' => $table->location,
+                'capacity' => (int) $table->capacity,
+                'status' => $table->status,
                 'status_label' => match ($table->status) {
                     Table::STATUS_OCCUPIED => 'Ocupada',
                     Table::STATUS_RESERVED => 'Reservada',
                     Table::STATUS_MAINTENANCE => 'Mantenimiento',
                     default => 'Disponible',
                 },
+                'is_suggested' => $pax > 0
+                    && $table->status === Table::STATUS_AVAILABLE
+                    && (int) $table->capacity >= $pax,
             ]);
+
+        if ($pax <= 0) {
+            return $tables->values();
+        }
+
+        // Sugeridas primero (capacity asc), después el resto (capacity asc).
+        // `partition` preserva el orden interno y `sortBy('capacity')` es
+        // estable: los empates de capacidad mantienen el orden por número.
+        [$suggested, $rest] = $tables->partition(fn (array $table) => $table['is_suggested']);
+
+        return $suggested
+            ->sortBy('capacity')
+            ->values()
+            ->concat($rest->sortBy('capacity')->values())
+            ->values();
     }
 
     public function getTotalAvailableCountProperty(): int
@@ -574,6 +614,11 @@ class CrearPedido extends Page
 
                 if ($this->orderType === self::TYPE_SALON) {
                     $data['table_id'] = $this->selectedTableId;
+
+                    // OBJ-04: comensales del salón (solo para sugerir; no
+                    // bloquea). Se guarda si hay valor > 0; null en otro caso.
+                    $guestCount = (int) ($this->guestCount ?? 0);
+                    $data['guest_count'] = $guestCount > 0 ? $guestCount : null;
                 }
 
                 $order = Order::create($data);
