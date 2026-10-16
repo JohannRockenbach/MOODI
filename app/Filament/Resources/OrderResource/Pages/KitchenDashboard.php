@@ -322,6 +322,48 @@ class KitchenDashboard extends Page
         };
     }
 
+    /**
+     * CU-008 — división por sector de producción: agrupa los orderProducts de
+     * un pedido por su categoría (product.category.name), excluyendo "Bebidas"
+     * y preservando el orden de aparición. Solo presentación, no cambia estados.
+     *
+     * @return array<string, list<\App\Models\OrderProduct>>
+     */
+    public function orderProductsBySector(Order $order): array
+    {
+        $sectors = [];
+
+        foreach ($order->orderProducts as $item) {
+            $categoryName = $item->product?->category?->name;
+
+            if ($categoryName === null || $categoryName === 'Bebidas') {
+                continue;
+            }
+
+            $sectors[$categoryName][] = $item;
+        }
+
+        return $sectors;
+    }
+
+    /**
+     * Emoji de cabecera para un sector de producción (fallback 🍽️).
+     */
+    public function sectorEmoji(string $sector): string
+    {
+        return match (mb_strtolower(trim($sector))) {
+            'hamburguesas', 'clásicas', 'especiales', 'veggie' => '🍔',
+            'pizzas', 'calzones' => '🍕',
+            'acompañamientos / frituras', 'papas fritas' => '🍟',
+            'minutas / otros' => '🍽️',
+            'postres' => '🍰',
+            'ensaladas' => '🥗',
+            'adicionales / extras' => '➕',
+            'combos / promos' => '🎁',
+            default => '🍽️',
+        };
+    }
+
     protected function notify(string $level, string $message): void
     {
         \Filament\Notifications\Notification::make()

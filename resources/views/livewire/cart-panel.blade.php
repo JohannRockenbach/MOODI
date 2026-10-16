@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Product;
+use App\Models\User;
+use App\Services\AuditService;
 use App\Support\DisplayText;
+use Filament\Notifications\Notification;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
@@ -9,6 +12,9 @@ use Livewire\Volt\Component;
 new class extends Component
 {
     public array $cartItems = [];
+
+    // Confirmación local mostrada en el drawer tras pedir atención (CU-009.7/009.8).
+    public ?string $confirmation = null;
 
     public function mount(): void
     {
@@ -85,6 +91,51 @@ new class extends Component
     {
         unset($this->cartItems[$productId]);
         $this->syncCart();
+    }
+
+    /**
+     * CU-009.7 — "Pedir atención del mozo". Notifica por DB a los roles que
+     * atienden en el salón (super_admin + Mozo) y confirma localmente al
+     * cliente. Funciona sin autenticación (menú público anónimo).
+     */
+    public function requestWaiter(): void
+    {
+        $staff = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'Mozo']))->get();
+
+        if ($staff->isNotEmpty()) {
+            Notification::make()
+                ->title('🛎 Cliente solicita atención del mozo')
+                ->body('El cliente de la carta digital solicita asistencia. — '.now()->format('d/m/Y H:i'))
+                ->icon('heroicon-o-bell')
+                ->sendToDatabase($staff);
+        }
+
+        AuditService::record('client.waiter_requested', null, ['source' => 'menu_publico']);
+
+        $this->confirmation = 'Mozo avisado.';
+        session()->flash('success', 'Mozo avisado.');
+    }
+
+    /**
+     * CU-009.8 — "Llamar al administrador". Notifica por DB SOLO a los
+     * super_admin y confirma localmente al cliente. Sin autenticación.
+     */
+    public function requestAdmin(): void
+    {
+        $admins = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->get();
+
+        if ($admins->isNotEmpty()) {
+            Notification::make()
+                ->title('🛎 Cliente solicita al administrador')
+                ->body('El cliente de la carta digital solicita hablar con un administrador. — '.now()->format('d/m/Y H:i'))
+                ->icon('heroicon-o-bell')
+                ->sendToDatabase($admins);
+        }
+
+        AuditService::record('client.admin_requested', null, ['source' => 'menu_publico']);
+
+        $this->confirmation = 'Administrador avisado.';
+        session()->flash('success', 'Administrador avisado.');
     }
 };
 
@@ -190,6 +241,32 @@ new class extends Component
             >
                 Ir a Pagar
             </a>
+
+            {{-- Escalamiento del cliente (CU-009.7 / CU-009.8) — visible también con carrito vacío. --}}
+            <div class="grid grid-cols-2 gap-2">
+                <button
+                    type="button"
+                    wire:click="requestWaiter"
+                    wire:loading.attr="disabled"
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-orange-700 hover:bg-orange-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                    🛎 Llamar al mozo
+                </button>
+                <button
+                    type="button"
+                    wire:click="requestAdmin"
+                    wire:loading.attr="disabled"
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                    👤 Llamar al administrador
+                </button>
+            </div>
+
+            @if ($confirmation)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 text-center">
+                    {{ $confirmation }}
+                </div>
+            @endif
         </div>
     </aside>
 </div>

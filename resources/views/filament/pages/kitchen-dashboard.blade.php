@@ -105,18 +105,24 @@
                                         </div>
                                     </div>
 
-                                    {{-- Ítems (sin Bebidas) --}}
+                                    {{-- Ítems agrupados por sector de producción (sin Bebidas) --}}
                                     <div class="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5 dark:border-[#272a31]">
-                                        @foreach ($order->orderProducts->where('product.category.name', '!=', 'Bebidas') as $item)
-                                            <div class="flex items-start gap-2">
-                                                <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
-                                                <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                        @foreach ($this->orderProductsBySector($order) as $sector => $items)
+                                            <div class="mt-1 flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 dark:bg-[#272a31]">
+                                                <span class="text-sm leading-none">{{ $this->sectorEmoji($sector) }}</span>
+                                                <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">{{ $sector }}</span>
                                             </div>
-                                            @if (trim((string) $item->notes) !== '')
-                                                <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
-                                                    <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
-                                                </p>
-                                            @endif
+                                            @foreach ($items as $item)
+                                                <div class="flex items-start gap-2">
+                                                    <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
+                                                    <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                                </div>
+                                                @if (trim((string) $item->notes) !== '')
+                                                    <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
+                                                        <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
+                                                    </p>
+                                                @endif
+                                            @endforeach
                                         @endforeach
                                     </div>
 
@@ -188,18 +194,24 @@
                                         </div>
                                     </div>
 
-                                    {{-- Ítems (sin Bebidas) --}}
+                                    {{-- Ítems agrupados por sector de producción (sin Bebidas) --}}
                                     <div class="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5 dark:border-[#272a31]">
-                                        @foreach ($order->orderProducts->where('product.category.name', '!=', 'Bebidas') as $item)
-                                            <div class="flex items-start gap-2">
-                                                <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
-                                                <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                        @foreach ($this->orderProductsBySector($order) as $sector => $items)
+                                            <div class="mt-1 flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 dark:bg-[#272a31]">
+                                                <span class="text-sm leading-none">{{ $this->sectorEmoji($sector) }}</span>
+                                                <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">{{ $sector }}</span>
                                             </div>
-                                            @if (trim((string) $item->notes) !== '')
-                                                <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
-                                                    <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
-                                                </p>
-                                            @endif
+                                            @foreach ($items as $item)
+                                                <div class="flex items-start gap-2">
+                                                    <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
+                                                    <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                                </div>
+                                                @if (trim((string) $item->notes) !== '')
+                                                    <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
+                                                        <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
+                                                    </p>
+                                                @endif
+                                            @endforeach
                                         @endforeach
                                     </div>
 
@@ -271,18 +283,24 @@
                                         </div>
                                     </div>
 
-                                    {{-- Ítems (sin Bebidas) --}}
+                                    {{-- Ítems agrupados por sector de producción (sin Bebidas) --}}
                                     <div class="flex flex-col gap-1.5 border-t border-slate-100 pt-2.5 dark:border-[#272a31]">
-                                        @foreach ($order->orderProducts->where('product.category.name', '!=', 'Bebidas') as $item)
-                                            <div class="flex items-start gap-2">
-                                                <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
-                                                <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                        @foreach ($this->orderProductsBySector($order) as $sector => $items)
+                                            <div class="mt-1 flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1 dark:bg-[#272a31]">
+                                                <span class="text-sm leading-none">{{ $this->sectorEmoji($sector) }}</span>
+                                                <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-[#c1c6d5]">{{ $sector }}</span>
                                             </div>
-                                            @if (trim((string) $item->notes) !== '')
-                                                <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
-                                                    <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
-                                                </p>
-                                            @endif
+                                            @foreach ($items as $item)
+                                                <div class="flex items-start gap-2">
+                                                    <span class="mt-0.5 shrink-0 rounded bg-slate-100 px-2 py-0.5 font-mono text-base font-black text-slate-700 dark:bg-[#0b0e15] dark:text-[#e0e2ec]">{{ $item->quantity }}x</span>
+                                                    <span class="text-base font-semibold text-slate-900 dark:text-[#e0e2ec]">{{ $item->product->name ?? 'Producto' }}</span>
+                                                </div>
+                                                @if (trim((string) $item->notes) !== '')
+                                                    <p class="-mt-1 flex items-center gap-1 pl-9 text-sm text-amber-600 dark:text-[#fbbc48]">
+                                                        <x-heroicon-o-pencil-square class="h-4 w-4 shrink-0" /> {{ $item->notes }}
+                                                    </p>
+                                                @endif
+                                            @endforeach
                                         @endforeach
                                     </div>
 
