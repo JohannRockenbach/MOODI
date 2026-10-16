@@ -66,6 +66,7 @@ Route::get('/pago-qr/{token}', function (string $token) {
 
 Route::middleware('auth')->group(function () {
     Volt::route('/checkout', 'pages.checkout')->name('checkout');
+    Volt::route('/reservar', 'pages.reservar')->name('reservar');
 });
 
 require __DIR__.'/auth.php';

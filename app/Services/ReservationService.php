@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Reservation;
 use App\Models\Table;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,6 +45,29 @@ class ReservationService
 
             return Reservation::create($data);
         });
+    }
+
+    /**
+     * Listar las mesas disponibles para reservar en un horario dado.
+     *
+     * Reutiliza la MISMA regla de solapamiento que `create()` (ventana ±2h
+     * sobre reservas pending/confirmed) para que el formulario web muestre
+     * solo mesas realmente reservables: status = available, capacidad
+     * suficiente y sin reserva activa superpuesta. Ordenadas por capacidad
+     * ascendente y luego por número.
+     */
+    public function availableTables(\Carbon\Carbon $time, int $guestCount, int $restaurantId = 1): Collection
+    {
+        $conflictingTableIds = $this->overlapQuery($time)->pluck('table_id');
+
+        return Table::query()
+            ->where('restaurant_id', $restaurantId)
+            ->where('status', Table::STATUS_AVAILABLE)
+            ->where('capacity', '>=', max(1, $guestCount))
+            ->whereNotIn('id', $conflictingTableIds)
+            ->orderBy('capacity')
+            ->orderBy('number')
+            ->get();
     }
 
     /**
@@ -126,13 +150,8 @@ class ReservationService
     {
         $reservationTime = \Carbon\Carbon::parse($reservationTime);
 
-        $conflict = Reservation::query()
+        $conflict = $this->overlapQuery($reservationTime)
             ->where('table_id', $tableId)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->whereBetween('reservation_time', [
-                $reservationTime->copy()->subHours(self::CONFLICT_WINDOW_HOURS),
-                $reservationTime->copy()->addHours(self::CONFLICT_WINDOW_HOURS),
-            ])
             ->when($exceptReservationId !== null, fn ($query) => $query->where('id', '!=', $exceptReservationId))
             ->exists();
 
@@ -141,5 +160,21 @@ class ReservationService
                 'reservation_time' => 'Esta mesa ya tiene una reserva activa en ese horario (±' . self::CONFLICT_WINDOW_HOURS . ' horas). Elige otro horario o mesa.',
             ]);
         }
+    }
+
+    /**
+     * Query base de reservas activas (pending/confirmed) cuya fecha cae dentro
+     * de la ventana ±N horas alrededor de $time. Fuente única de la regla de
+     * solapamiento: la usan tanto `assertNoOverlap` (create/update) como
+     * `availableTables` (listado del formulario web).
+     */
+    private function overlapQuery(\Carbon\Carbon $time): \Illuminate\Database\Eloquent\Builder
+    {
+        return Reservation::query()
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereBetween('reservation_time', [
+                $time->copy()->subHours(self::CONFLICT_WINDOW_HOURS),
+                $time->copy()->addHours(self::CONFLICT_WINDOW_HOURS),
+            ]);
     }
 }

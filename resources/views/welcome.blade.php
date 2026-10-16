@@ -58,6 +58,10 @@
                 </div>
 
                 <div class="flex items-center gap-3 lg:gap-4 min-w-0">
+                    <a href="{{ route('reservar') }}" class="inline-flex h-11 items-center rounded-full border border-orange-200 bg-white px-5 text-sm font-bold text-orange-600 hover:bg-orange-50 hover:border-orange-300 transition">
+                        Reservar mesa
+                    </a>
+
                     @auth
                         <span class="hidden lg:inline text-sm font-semibold text-gray-700 max-w-[180px] truncate">Hola, {{ $safeAuthName }}</span>
                         <a href="{{ route('dashboard') }}" class="inline-flex h-11 items-center rounded-full bg-orange-500 px-5 text-sm font-bold text-white hover:bg-orange-600 transition">
@@ -254,7 +258,7 @@
                 <span class="text-[11px] font-semibold mt-1">Pedidos</span>
             </button>
 
-            <button type="button" aria-disabled="true" class="w-1/4 py-2.5 flex flex-col items-center justify-center text-gray-400 cursor-not-allowed">
+            <a href="{{ route('reservar') }}" class="w-1/4 py-2.5 flex flex-col items-center justify-center text-gray-500 hover:text-orange-600 transition">
                 <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 2v4" />
@@ -262,7 +266,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18" />
                 </svg>
                 <span class="text-[11px] font-semibold mt-1">Reservar</span>
-            </button>
+            </a>
 
             @auth
                 <a href="{{ route('dashboard') }}" class="w-1/4 py-2.5 flex flex-col items-center justify-center text-gray-500 hover:text-orange-600 transition">
