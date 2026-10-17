@@ -53,8 +53,20 @@ Route::view('profile', 'profile')
     ->middleware(['auth'])
     ->name('profile');
 
+// Pago por QR (futura actualización): página pública del aviso. El token es
+// opaco (sha256, 64 hex) y NO se consulta la DB: se valida solo el formato
+// para no revelar ningún dato de la operación (ni montos ni clientes).
+Route::get('/pago-qr/{token}', function (string $token) {
+    if (! preg_match('/^[a-f0-9]{64}$/', $token)) {
+        abort(404);
+    }
+
+    return view('pago-qr');
+})->name('pago-qr');
+
 Route::middleware('auth')->group(function () {
     Volt::route('/checkout', 'pages.checkout')->name('checkout');
+    Volt::route('/reservar', 'pages.reservar')->name('reservar');
 });
 
 require __DIR__.'/auth.php';

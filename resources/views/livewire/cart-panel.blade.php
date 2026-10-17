@@ -1,6 +1,10 @@
 <?php
 
 use App\Models\Product;
+use App\Models\User;
+use App\Services\AuditService;
+use App\Support\DisplayText;
+use Filament\Notifications\Notification;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Volt\Component;
@@ -8,6 +12,9 @@ use Livewire\Volt\Component;
 new class extends Component
 {
     public array $cartItems = [];
+
+    // Confirmación local mostrada en el drawer tras pedir atención (CU-009.7/009.8).
+    public ?string $confirmation = null;
 
     public function mount(): void
     {
@@ -35,6 +42,12 @@ new class extends Component
     #[On('cart-add')]
     public function addToCart($productId): void
     {
+        // El botón de la home dispara Livewire.dispatch('cart-add', { productId: X })
+        // y Livewire puede entregar el payload como array/objeto en vez del id suelto.
+        if (is_array($productId) || is_object($productId)) {
+            $productId = (int) data_get($productId, 'productId', 0);
+        }
+
         $productId = (int) $productId;
         $product = Product::find($productId);
 
@@ -43,7 +56,7 @@ new class extends Component
         }
 
         $this->cartItems[$productId] = [
-            'name' => $product->name,
+            'name' => DisplayText::plain($product->name, 'Producto'),
             'price' => (float) $product->price,
             'quantity' => ($this->cartItems[$productId]['quantity'] ?? 0) + 1,
         ];
@@ -79,6 +92,51 @@ new class extends Component
         unset($this->cartItems[$productId]);
         $this->syncCart();
     }
+
+    /**
+     * CU-009.7 — "Pedir atención del mozo". Notifica por DB a los roles que
+     * atienden en el salón (super_admin + Mozo) y confirma localmente al
+     * cliente. Funciona sin autenticación (menú público anónimo).
+     */
+    public function requestWaiter(): void
+    {
+        $staff = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['super_admin', 'Mozo']))->get();
+
+        if ($staff->isNotEmpty()) {
+            Notification::make()
+                ->title('🛎 Cliente solicita atención del mozo')
+                ->body('El cliente de la carta digital solicita asistencia. — '.now()->format('d/m/Y H:i'))
+                ->icon('heroicon-o-bell')
+                ->sendToDatabase($staff);
+        }
+
+        AuditService::record('client.waiter_requested', null, ['source' => 'menu_publico']);
+
+        $this->confirmation = 'Mozo avisado.';
+        session()->flash('success', 'Mozo avisado.');
+    }
+
+    /**
+     * CU-009.8 — "Llamar al administrador". Notifica por DB SOLO a los
+     * super_admin y confirma localmente al cliente. Sin autenticación.
+     */
+    public function requestAdmin(): void
+    {
+        $admins = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->get();
+
+        if ($admins->isNotEmpty()) {
+            Notification::make()
+                ->title('🛎 Cliente solicita al administrador')
+                ->body('El cliente de la carta digital solicita hablar con un administrador. — '.now()->format('d/m/Y H:i'))
+                ->icon('heroicon-o-bell')
+                ->sendToDatabase($admins);
+        }
+
+        AuditService::record('client.admin_requested', null, ['source' => 'menu_publico']);
+
+        $this->confirmation = 'Administrador avisado.';
+        session()->flash('success', 'Administrador avisado.');
+    }
 };
 
 ?>
@@ -94,7 +152,7 @@ new class extends Component
 >
     <div class="absolute inset-0 bg-black/40" @click="open = false" aria-hidden="true"></div>
 
-    <aside class="relative h-full w-full max-w-md bg-white shadow-2xl flex flex-col" role="dialog" aria-modal="true" aria-label="Carrito de compras" @click.stop>
+    <aside class="relative h-full w-full max-w-full sm:max-w-md bg-white shadow-2xl flex flex-col overflow-x-hidden" role="dialog" aria-modal="true" aria-label="Carrito de compras" @click.stop>
         <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
             <h2 class="text-xl font-black text-gray-900">Tu Pedido</h2>
             <button
@@ -120,10 +178,13 @@ new class extends Component
             @endif
 
             @foreach($cartItems as $id => $item)
+                @php
+                    $safeItemName = \App\Support\DisplayText::plain($item['name'] ?? null, 'Producto');
+                @endphp
                 <article class="rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 shadow-sm">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <h3 class="font-bold text-gray-900 break-words">{{ $item['name'] }}</h3>
+                            <h3 class="font-bold text-gray-900 break-words">{{ $safeItemName }}</h3>
                             <p class="text-sm text-gray-500 mt-1">${{ number_format((float) $item['price'], 0, ',', '.') }} c/u</p>
                         </div>
 
@@ -146,15 +207,15 @@ new class extends Component
                             <button
                                 type="button"
                                 wire:click="decrementQuantity({{ $id }})"
-                                class="px-3 py-1.5 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                                class="px-3.5 py-2 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             >
                                 -
                             </button>
-                            <span class="px-3 py-1.5 text-sm font-bold text-gray-800">{{ $item['quantity'] }}</span>
+                            <span class="px-3.5 py-2 text-sm font-bold text-gray-800">{{ $item['quantity'] }}</span>
                             <button
                                 type="button"
                                 wire:click="incrementQuantity({{ $id }})"
-                                class="px-3 py-1.5 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                                class="px-3.5 py-2 text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
                             >
                                 +
                             </button>
@@ -180,6 +241,32 @@ new class extends Component
             >
                 Ir a Pagar
             </a>
+
+            {{-- Escalamiento del cliente (CU-009.7 / CU-009.8) — visible también con carrito vacío. --}}
+            <div class="grid grid-cols-2 gap-2">
+                <button
+                    type="button"
+                    wire:click="requestWaiter"
+                    wire:loading.attr="disabled"
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-orange-700 hover:bg-orange-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                    🛎 Llamar al mozo
+                </button>
+                <button
+                    type="button"
+                    wire:click="requestAdmin"
+                    wire:loading.attr="disabled"
+                    class="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs sm:text-sm font-bold text-gray-700 hover:bg-gray-100 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                    👤 Llamar al administrador
+                </button>
+            </div>
+
+            @if ($confirmation)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 text-center">
+                    {{ $confirmation }}
+                </div>
+            @endif
         </div>
     </aside>
 </div>

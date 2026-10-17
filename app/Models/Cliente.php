@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class Cliente extends Model
 {
@@ -22,6 +23,7 @@ class Cliente extends Model
         'phone',
         'birthday',
         'fcm_token',
+        'loyalty_points',
     ];
 
     /**
@@ -32,6 +34,27 @@ class Cliente extends Model
         return [
             'birthday' => 'date',
         ];
+    }
+
+    /**
+     * Boot method para auto-asignar restaurant_id (sistema de restaurante único).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Cliente $cliente) {
+            if (empty($cliente->restaurant_id)) {
+                $cliente->restaurant_id = Auth::user()?->restaurant_id ?? 1;
+            }
+        });
+    }
+
+    /**
+     * Busca un cliente por email INCLUYENDO los soft-deleted, para poder
+     * restaurarlo y reutilizar su fila (el UNIQUE(email) cuenta filas borradas).
+     */
+    public static function findByEmailWithTrashed(string $email): ?self
+    {
+        return static::withTrashed()->where('email', $email)->first();
     }
 
     /**

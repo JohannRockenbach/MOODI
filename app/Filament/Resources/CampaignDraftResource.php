@@ -3,30 +3,27 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CampaignDraftResource\Pages;
-use App\Filament\Resources\CampaignDraftResource\RelationManagers;
 use App\Models\CampaignDraft;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CampaignDraftResource extends Resource
 {
     protected static ?string $model = CampaignDraft::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
-    
+
     protected static ?string $navigationLabel = 'Borradores';
-    
+
     protected static ?string $modelLabel = 'Borrador';
-    
+
     protected static ?string $pluralModelLabel = 'Borradores de Campañas';
-    
+
     protected static ?string $navigationGroup = 'Marketing';
-    
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -75,8 +72,7 @@ class CampaignDraftResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('discount_value')
                     ->label('Descuento')
-                    ->formatStateUsing(fn ($state, $record) => 
-                        $record->discount_type === 'percentage' ? "{$state}%" : "\${$state}"
+                    ->formatStateUsing(fn ($state, $record) => $record->discount_type === 'percentage' ? "{$state}%" : "\${$state}"
                     )
                     ->sortable(),
                 Tables\Columns\TextColumn::make('coupon_code')
@@ -96,16 +92,15 @@ class CampaignDraftResource extends Resource
                     ->label('Cargar')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('success')
-                    ->url(fn (CampaignDraft $record) => 
-                        \App\Filament\Pages\SendCampaign::getUrl([
-                            'subject' => $record->subject,
-                            'body' => $record->body,
-                            'product_id' => $record->product_id,
-                            'discount_type' => $record->discount_type,
-                            'discount_value' => $record->discount_value,
-                            'coupon_code' => $record->coupon_code,
-                            'valid_until' => $record->valid_until?->format('Y-m-d'),
-                        ])
+                    ->url(fn (CampaignDraft $record) => \App\Filament\Pages\SendCampaign::getUrl([
+                        'subject' => $record->subject,
+                        'body' => $record->body,
+                        'product_id' => $record->product_id,
+                        'discount_type' => $record->discount_type,
+                        'discount_value' => $record->discount_value,
+                        'coupon_code' => $record->coupon_code,
+                        'valid_until' => $record->valid_until?->format('Y-m-d'),
+                    ])
                     ),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
@@ -131,5 +126,17 @@ class CampaignDraftResource extends Resource
             'create' => Pages\CreateCampaignDraft::route('/create'),
             'edit' => Pages\EditCampaignDraft::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * El Cocinero solo opera Cocina + Recetas: queda fuera del marketing
+     * (borradores de campañas). El resto de roles conserva su acceso actual
+     * (la página no tiene policy propia: Filament permite por defecto a los
+     * usuarios autenticados).
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
     }
 }

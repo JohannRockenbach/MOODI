@@ -12,6 +12,10 @@ class Order extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'stock_deducted' => false,
+    ];
+
     protected $fillable = [
         'status',
         'type',
@@ -22,12 +26,13 @@ class Order extends Model
         'delivery_address',
         'delivery_phone',
         'customer_name',
-        'stock_deducted',
         'customer_id',
+        'guest_count',
     ];
 
     protected $casts = [
         'stock_deducted' => 'boolean',
+        'guest_count' => 'integer',
     ];
 
     /**
@@ -69,8 +74,8 @@ class Order extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'order_product')
-                    ->withPivot('quantity', 'price', 'notes')
-                    ->withTimestamps();
+            ->withPivot('quantity', 'price', 'notes')
+            ->withTimestamps();
     }
 
     /**

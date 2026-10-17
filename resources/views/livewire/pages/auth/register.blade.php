@@ -3,12 +3,12 @@
 use App\Models\Cliente;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Support\DisplayText;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules;
 use Spatie\Permission\Models\Role;
 
 use function Livewire\Volt\layout;
@@ -23,7 +23,7 @@ state([
     'phone' => '',
     'birthday' => '',
     'password' => '',
-    'password_confirmation' => ''
+    'password_confirmation' => '',
 ]);
 
 rules([
@@ -38,11 +38,17 @@ $register = function () {
     try {
         $validated = $this->validate();
 
+        $validated['name'] = DisplayText::plain($validated['name'], 'Cliente web');
+        $validated['email'] = mb_strtolower(trim(DisplayText::plain($validated['email'])));
+        $validated['phone'] = DisplayText::plain($validated['phone'] ?? null);
+        $validated['phone'] = $validated['phone'] !== '' ? $validated['phone'] : null;
+
         $defaultRestaurantId = Restaurant::query()->whereKey(1)->value('id')
             ?: Restaurant::query()->value('id');
 
         if (! $defaultRestaurantId) {
             $this->addError('email', 'No hay restaurante configurado para registrar clientes.');
+
             return;
         }
 
@@ -50,20 +56,38 @@ $register = function () {
         $validated['restaurant_id'] = $defaultRestaurantId;
 
         $user = DB::transaction(function () use ($validated, $defaultRestaurantId) {
-            $user = User::create($validated);
+            // Si existe un usuario soft-deleted con el mismo email, restaurarlo y actualizarlo.
+            // El UNIQUE(email) cuenta filas borradas: crear uno nuevo acá violaría el índice.
+            $user = User::withTrashed()->where('email', $validated['email'])->first();
+
+            if ($user) {
+                $user->restore();
+                $user->forceFill($validated)->save();
+            } else {
+                $user = User::create($validated);
+            }
 
             $clienteRole = Role::firstOrCreate(['name' => 'cliente', 'guard_name' => 'web']);
             $user->assignRole($clienteRole);
 
-            Cliente::create([
-                'user_id'  => $user->id,
-                'name'     => $user->name,
-                'email'    => $user->email,
-                'phone'    => $user->phone ?? null,
+            // Restaurar el cliente soft-deleted del mismo email, o crearlo si no existe.
+            $cliente = Cliente::findByEmailWithTrashed($user->email);
+
+            if ($cliente) {
+                $cliente->restore();
+            } else {
+                $cliente = new Cliente;
+            }
+
+            $cliente->fill([
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone ?? null,
                 'birthday' => $user->birthday ?? null,
                 'fcm_token' => null,
                 'restaurant_id' => $defaultRestaurantId,
-            ]);
+            ])->save();
 
             return $user;
         });

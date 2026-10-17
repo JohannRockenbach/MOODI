@@ -6,6 +6,7 @@ use App\Filament\Resources\ProductResource\Pages;
 use App\Filament\Resources\ProductResource\RelationManagers;
 use App\Models\Category; // <-- 1. Importar Category
 use App\Models\Restaurant; // <-- 2. Importar Restaurant
+use App\Models\Recipe; // Para el vínculo Producto↔Receta
 use App\Models\Product;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -61,6 +62,14 @@ class ProductResource extends Resource
                     ->required()
                     ->numeric()
                     ->prefix('$'),
+
+                Forms\Components\Select::make('recipe_id')
+                    ->label('Receta')
+                    ->options(Recipe::all()->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Si el producto es elaborado (ej. Hamburguesa), asígnalo a su receta para calcular el stock real desde los ingredientes. Dejar vacío para productos de reventa (ej. Coca-Cola).')
+                    ->columnSpanFull(),
 
                 Forms\Components\TextInput::make('preparation_time_minutes')
                     ->label('Tiempo de Preparación (minutos)')
@@ -231,4 +240,16 @@ class ProductResource extends Resource
                     SoftDeletingScope::class,
                 ]);
         }
+
+    /**
+     * El Cocinero NO gestiona el catálogo: su lectura de productos/recetas
+     * vive en la página RecetasCocina (cocina = super_admin/Cocinero). El
+     * resource "Productos" queda para la gestión (salón/admin), por lo que
+     * se oculta del menú y del index por URL para el rol Cocinero.
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
+    }
 }

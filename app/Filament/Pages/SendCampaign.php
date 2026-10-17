@@ -3,19 +3,18 @@
 namespace App\Filament\Pages;
 
 use App\Mail\PromoEmail;
-use App\Models\Cliente;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Recipe;
 use App\Models\Restaurant;
 use App\Models\CampaignDraft;
 use App\Models\IngredientBatch;
+use App\Support\CampaignSegment;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -23,7 +22,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Split;
 use Filament\Forms\Components\ViewField;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -31,7 +29,6 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -54,6 +51,14 @@ class SendCampaign extends Page implements HasForms
     // Ocultar del menú de navegación (solo acceso por URL)
     protected static bool $shouldRegisterNavigation = false;
 
+    public static function canAccess(): bool
+    {
+        // Enviar campañas ejecuta mailing real: solo super_admin.
+        $user = auth()->user();
+
+        return $user !== null && $user->hasRole('super_admin');
+    }
+
     // ==========================================
     // Propiedades públicas del formulario
     // ==========================================
@@ -69,8 +74,11 @@ class SendCampaign extends Page implements HasForms
     public string $subject = '';
     public string $body = '';
     public ?string $template_selector = null;
-    
-    // Email de prueba
+
+    // Segmento de clientes destino ('todos' | 'cumpleanos' | 'vip')
+    public string $segment = 'todos';
+
+    // Email de prueba: si se completa, la campaña se envía SOLO a esta dirección
     public string $testEmail = '';
     
     // Automatización avanzada
@@ -97,8 +105,12 @@ class SendCampaign extends Page implements HasForms
         $this->discount_value = request()->query('discount_value', null);
         $this->coupon_code = request()->query('coupon_code', null);
         $this->valid_until = request()->query('valid_until', null);
-        $this->subject = request()->query('subject', '');
-        $this->body = request()->query('body', '');
+
+        // El asunto/body llegan por URL (notificaciones generadas por comandos):
+        // se eliminan etiquetas HTML antes de renderizarlos con Str::markdown
+        // para evitar XSS reflejado en la vista previa y en el email.
+        $this->subject = trim(strip_tags((string) request()->query('subject', '')));
+        $this->body = trim(strip_tags((string) request()->query('body', '')));
         
         // Cargar sugerencias del Chef automáticamente
         $this->loadChefSuggestions();
@@ -109,14 +121,16 @@ class SendCampaign extends Page implements HasForms
             try {
                 $recipe = json_decode(base64_decode($suggestedRecipe), true);
                 if ($recipe) {
-                    $this->subject = "🔥 Nueva Creación: {$recipe['name']}!";
-                    $this->body = "{$recipe['description']}. Oferta especial de lanzamiento con descuento exclusivo.\n\n¡Prueba esta edición limitada antes que se acabe!";
+                    $recipeName = strip_tags((string) ($recipe['name'] ?? ''));
+                    $recipeDescription = strip_tags((string) ($recipe['description'] ?? ''));
+                    $this->subject = "🔥 Nueva Creación: {$recipeName}!";
+                    $this->body = "{$recipeDescription}. Oferta especial de lanzamiento con descuento exclusivo.\n\n¡Prueba esta edición limitada antes que se acabe!";
                     $this->discount_value = 20;
                     $this->discount_type = 'percentage';
                     
                     Notification::make()
                         ->title('👨‍🍳 Receta del Chef Cargada')
-                        ->body("Campaña preparada para: {$recipe['name']}")
+                        ->body("Campaña preparada para: {$recipeName}")
                         ->success()
                         ->send();
                 }
@@ -134,7 +148,11 @@ class SendCampaign extends Page implements HasForms
             $this->valid_until = now()->addDays(7)->format('Y-m-d');
         }
         
-        $this->testEmail = 'rockenbachjohann@gmail.com'; // Email fijo para demo
+        $this->testEmail = trim((string) request()->query('testEmail', ''));
+
+        // Segmento objetivo: se acepta por URL (ej: desde una notificación) con validación.
+        $segment = request()->query('segment', CampaignSegment::TODOS);
+        $this->segment = CampaignSegment::isValid($segment) ? $segment : CampaignSegment::TODOS;
         
         // Si hay un producto, pre-llenar el asunto
         if ($this->product_id && empty($this->subject)) {
@@ -309,6 +327,20 @@ class SendCampaign extends Page implements HasForms
                                 ->default(now()->addDays(7))
                                 ->displayFormat('d/m/Y'),
 
+                            Select::make('segment')
+                                ->label('🎯 Segmento de Clientes')
+                                ->options(CampaignSegment::options())
+                                ->default(CampaignSegment::TODOS)
+                                ->required()
+                                ->native(false)
+                                ->helperText('Define qué clientes reciben la campaña. Si se completa el email de prueba, el segmento se ignora.'),
+
+                            TextInput::make('testEmail')
+                                ->label('📧 Email de Prueba (opcional)')
+                                ->placeholder('cliente@ejemplo.com')
+                                ->email()
+                                ->helperText('Si se completa, la campaña se envía únicamente a esta dirección (no usa el segmento).'),
+
                             Toggle::make('enable_automation')
                                 ->label('Programar Envío')
                                 ->reactive()
@@ -335,12 +367,12 @@ class SendCampaign extends Page implements HasForms
                                     ->icon(fn ($get) => $get('enable_automation') ? 'heroicon-o-clock' : 'heroicon-o-paper-airplane')
                                     ->color('success')
                                     ->requiresConfirmation()
-                                    ->modalHeading(fn ($get) => $get('enable_automation') ? '💾 Guardar Programación' : '📧 Enviar Campaña')
-                                    ->modalDescription(fn ($get) => $get('enable_automation') 
-                                        ? 'Esta campaña se enviará automáticamente en la fecha programada.' 
-                                        : 'Esta campaña se enviará a rockenbachjohann@gmail.com')
+                                    ->modalHeading(fn ($get) => $get('enable_automation') ? '💾 Guardar Programación' : '📧 Enviar Campaña a Clientes')
+                                    ->modalDescription(fn ($get) => $get('enable_automation')
+                                        ? 'Esta campaña se enviará automáticamente en la fecha programada al segmento seleccionado.'
+                                        : $this->getSendDescription())
                                     ->modalSubmitActionLabel(fn ($get) => $get('enable_automation') ? 'Guardar' : 'Enviar ahora')
-                                    ->action(fn ($get) => $get('enable_automation') ? $this->saveScheduledCampaign() : $this->sendDemoCampaign()),
+                                    ->action(fn ($get) => $get('enable_automation') ? $this->saveScheduledCampaign() : $this->sendCampaign()),
                             ])->fullWidth(),
                         ])
                         ->grow(false),
@@ -364,9 +396,14 @@ class SendCampaign extends Page implements HasForms
     }
 
     /**
-     * Enviar campaña a email de demo
+     * Enviar campaña a clientes reales.
+     *
+     * Flujo:
+     *  - Si hay un email de prueba (campo o parámetro 'testEmail' en la URL,
+     *    como generan los comandos automáticos), se envía SOLO a esa dirección.
+     *  - Si no, se envía a todos los Cliente con email del segmento seleccionado.
      */
-    public function sendDemoCampaign()
+    public function sendCampaign()
     {
         // Validar campos requeridos
         if (empty($this->subject) || empty($this->body)) {
@@ -382,27 +419,54 @@ class SendCampaign extends Page implements HasForms
             $discountText = $this->formatDiscountText();
             $validUntilFormatted = $this->formatValidUntil();
 
-            Mail::to('rockenbachjohann@gmail.com')->send(
-                new PromoEmail(
-                    title: $this->subject,
-                    body: $this->body,
-                    actionUrl: config('app.url'),
-                    couponCode: $this->coupon_code,
-                    discountText: $discountText,
-                    validUntil: $validUntilFormatted
-                )
+            $mail = new PromoEmail(
+                title: $this->subject,
+                body: $this->body,
+                actionUrl: config('app.url'),
+                couponCode: $this->coupon_code,
+                discountText: $discountText,
+                validUntil: $validUntilFormatted
             );
+
+            $testEmail = trim($this->testEmail);
+            $sentMessage = '';
+
+            if ($testEmail !== '') {
+                // Modo prueba: envío a UNA dirección, sin usar segmento.
+                Mail::to($testEmail)->send($mail);
+                $sentMessage = "Correo de prueba enviado a {$testEmail}";
+            } else {
+                $restaurantId = Auth::user()?->restaurant_id ?? 1;
+                $clientes = CampaignSegment::clientesForSegment($this->segment, $restaurantId);
+
+                if ($clientes->isEmpty()) {
+                    Notification::make()
+                        ->title('⚠️ Sin destinatarios')
+                        ->body('No hay clientes con email para el segmento seleccionado. La campaña no se envió.')
+                        ->warning()
+                        ->send();
+                    return;
+                }
+
+                $count = 0;
+                foreach ($clientes as $cliente) {
+                    Mail::to($cliente->email)->send($mail);
+                    $count++;
+                }
+
+                $sentMessage = "Campaña enviada a {$count} cliente(s) del segmento seleccionado";
+            }
 
             Notification::make()
                 ->title('✅ Campaña enviada exitosamente')
-                ->body('Email enviado a rockenbachjohann@gmail.com')
+                ->body($sentMessage)
                 ->success()
                 ->duration(5000)
                 ->send();
-            
+
             // Redirect al escritorio después de enviar
             return redirect()->route('filament.admin.pages.dashboard');
-            
+
         } catch (\Exception $e) {
             Notification::make()
                 ->title('❌ Error al enviar')
@@ -410,6 +474,22 @@ class SendCampaign extends Page implements HasForms
                 ->danger()
                 ->send();
         }
+    }
+
+    /**
+     * Descripción del modal de confirmación de envío según el modo activo.
+     */
+    private function getSendDescription(): string
+    {
+        $testEmail = trim($this->testEmail);
+
+        if ($testEmail !== '') {
+            return "Esta campaña se enviará SOLO a {$testEmail} como prueba (no usa el segmento).";
+        }
+
+        $segmentLabel = CampaignSegment::options()[$this->segment] ?? 'Todos los clientes';
+
+        return "Esta campaña se enviará a los clientes con email del segmento: {$segmentLabel}.";
     }
 
     /**
@@ -444,6 +524,7 @@ class SendCampaign extends Page implements HasForms
                         $this->discount_value = $draft->discount_value;
                         $this->coupon_code = $draft->coupon_code;
                         $this->valid_until = $draft->valid_until?->format('Y-m-d');
+                        $this->segment = $draft->segment ?? CampaignSegment::TODOS;
                         
                         Notification::make()
                             ->title('✅ Borrador Cargado')
@@ -474,6 +555,7 @@ class SendCampaign extends Page implements HasForms
                         'discount_value' => $this->discount_value,
                         'coupon_code' => $this->coupon_code,
                         'valid_until' => $this->valid_until,
+                        'segment' => $this->segment,
                     ]);
                     
                     Notification::make()
@@ -490,10 +572,10 @@ class SendCampaign extends Page implements HasForms
                 ->color('success')
                 ->size('lg')
                 ->requiresConfirmation()
-                ->modalHeading('📧 Enviar Campaña de Demo')
-                ->modalDescription('Esta campaña se enviará a rockenbachjohann@gmail.com para demostración.')
+                ->modalHeading('📧 Enviar Campaña a Clientes')
+                ->modalDescription(fn () => $this->getSendDescription())
                 ->modalSubmitActionLabel('Enviar ahora')
-                ->action('sendDemoCampaign')
+                ->action('sendCampaign')
                 ->visible(fn() => !empty($this->subject) && !empty($this->body)),
         ];
     }
@@ -503,11 +585,7 @@ class SendCampaign extends Page implements HasForms
      */
     private function formatDiscountText(): string
     {
-        if ($this->discount_type === 'percentage') {
-            return "{$this->discount_value}% de descuento";
-        } else {
-            return "\${$this->discount_value} de descuento";
-        }
+        return CampaignSegment::formatDiscountText($this->discount_type, $this->discount_value);
     }
 
     /**
@@ -515,11 +593,7 @@ class SendCampaign extends Page implements HasForms
      */
     private function formatValidUntil(): string
     {
-        if (empty($this->valid_until)) {
-            return '';
-        }
-
-        return \Carbon\Carbon::parse($this->valid_until)->format('d/m/Y');
+        return CampaignSegment::formatValidUntil($this->valid_until);
     }
     
     /**
@@ -741,22 +815,26 @@ class SendCampaign extends Page implements HasForms
                 ->send();
             return;
         }
-        
+
         $suggestion = $this->suggested_recipes[$index];
-        
+
         try {
-            // Buscar o crear categoría "Temporales"
+            // Single-restaurant: restaurant_id del usuario autenticado o 1.
+            $restaurantId = Auth::user()?->restaurant_id ?? 1;
+
+            // Buscar o crear categoría "Temporales" (solo columnas reales de categories).
             $category = Category::firstOrCreate(
                 ['name' => 'Temporales'],
                 [
                     'description' => 'Menú temporal - Productos disponibles por tiempo limitado',
-                    'is_active' => true,
                 ]
             );
-            
-            // Verificar si ya existe un producto con este nombre
-            $existingProduct = Product::where('name', $suggestion['name'])->first();
-            
+
+            // Verificar si ya existe un producto con este nombre en el restaurante
+            $existingProduct = Product::where('restaurant_id', $restaurantId)
+                ->where('name', $suggestion['name'])
+                ->first();
+
             if ($existingProduct) {
                 Notification::make()
                     ->title('ℹ️ Producto existente')
@@ -766,23 +844,44 @@ class SendCampaign extends Page implements HasForms
                     ->send();
                 return;
             }
-            
+
+            // Lote crítico: algunas sugerencias guardan el id de IngredientBatch bajo
+            // 'ingredient_id' (confusión histórica de nombres). Solo se vincula si el
+            // id existe realmente en ingredient_batches (FK de critical_ingredient_id).
+            $batchId = $suggestion['critical_ingredient_id'] ?? $suggestion['ingredient_id'] ?? null;
+            if ($batchId !== null && ! IngredientBatch::whereKey($batchId)->exists()) {
+                $batchId = null;
+            }
+
+            $description = $suggestion['description']
+                ?? "Edición limitada con extra {$suggestion['ingredient_name']} - Hasta agotar stock";
+
+            // Stock inicial: cantidad planificada del lote si la sugerencia la trae.
+            $initialStock = isset($suggestion['quantity_to_use'])
+                ? (int) $suggestion['quantity_to_use']
+                : 0;
+
             // Crear el producto temporal
             $product = Product::create([
                 'name' => $suggestion['name'],
-                'description' => "Edición limitada con extra {$suggestion['ingredient_name']} - Hasta agotar stock",
+                'description' => $description,
                 'category_id' => $category->id,
+                'restaurant_id' => $restaurantId,
                 'price' => $suggestion['suggested_price'] ?? 0,
+                'stock' => $initialStock,
                 'is_available' => true,
+                'is_temporal' => true,
+                'critical_ingredient_id' => $batchId,
+                'recipe_id' => $suggestion['recipe_id'] ?? null,
             ]);
-            
+
             Notification::make()
                 ->title('✅ Plato Publicado')
                 ->body("**{$product->name}** se agregó al Menú Temporal")
                 ->success()
                 ->duration(5000)
                 ->send();
-                
+
         } catch (\Exception $e) {
             Notification::make()
                 ->title('❌ Error al publicar')
@@ -798,7 +897,7 @@ class SendCampaign extends Page implements HasForms
     public function saveScheduledCampaign()
     {
         // Validar que la fecha esté en el futuro
-        if (!$this->scheduled_date || \Carbon\Carbon::parse($this->scheduled_date)->isPast()) {
+        if (!$this->automation_datetime || \Carbon\Carbon::parse($this->automation_datetime)->isPast()) {
             Notification::make()
                 ->title('⚠️ Error de Validación')
                 ->body('La fecha programada debe ser futura.')
@@ -818,7 +917,8 @@ class SendCampaign extends Page implements HasForms
                 'coupon_code' => $this->coupon_code,
                 'discount_type' => $this->discount_type,
                 'discount_value' => $this->discount_value,
-                'scheduled_date' => $this->scheduled_date,
+                'segment' => $this->segment,
+                'scheduled_date' => $this->automation_datetime,
                 'valid_until' => $this->valid_until,
                 'status' => 'scheduled', // Estado programado
             ]);

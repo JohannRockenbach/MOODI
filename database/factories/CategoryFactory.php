@@ -27,7 +27,6 @@ class CategoryFactory extends Factory
             'Carnes',
             'Pescados',
             'Postres',
-            'Bebidas',
             'Entradas',
             'Vegano',
             'Sin TACC',
@@ -38,6 +37,11 @@ class CategoryFactory extends Factory
         ];
 
         return [
+            // 'Bebidas' y 'Comida' se omiten de los nombres aleatorios: son
+            // nombres "reservados" que varios tests crean hardcodeados con
+            // significado especial (filtros de cocina/KDS). Antes, fake()->unique()
+            // NO garantizaba unicidad real (nueva instancia de Faker por llamada)
+            // y podía generar "Bebidas" y colisionar con el UNIQUE(name).
             'name' => fake()->unique()->randomElement($categoryNames),
             'description' => fake()->optional(0.7)->sentence(8), // 70% de probabilidad
             'parent_id' => null, // Por defecto sin categoría padre (categoría principal)

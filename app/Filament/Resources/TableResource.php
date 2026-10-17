@@ -28,6 +28,16 @@ class TableResource extends Resource implements HasShieldPermissions
     protected static ?string $navigationLabel = 'Mesas';
     // --- Fin Etiquetas ---
 
+    /**
+     * La navegación de la tabla queda oculta: la pantalla Stitch
+     * (GestionMesas) la reemplaza en el menú. El resource sigue accesible
+     * por URL (las páginas delegan en create/edit).
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form

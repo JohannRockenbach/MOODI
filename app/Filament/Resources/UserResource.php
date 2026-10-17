@@ -90,12 +90,13 @@ class UserResource extends Resource
 
                 Forms\Components\Section::make('Datos Laborales')
                     ->schema([
-                        // Roles (solo empleados: excluye 'cliente')
+                        // Roles (solo empleados: excluye 'super_admin' y 'cliente' para
+                        // evitar escalada de privilegios creando otro super_admin por UI)
                         Forms\Components\Select::make('roles')
                             ->label('Roles')
                             ->multiple()
                             ->relationship('roles', 'name')
-                            ->options(fn() => \Spatie\Permission\Models\Role::where('name', '!=', 'cliente')->pluck('name', 'id'))
+                            ->options(fn() => \Spatie\Permission\Models\Role::whereNotIn('name', ['super_admin', 'cliente'])->pluck('name', 'id'))
                             ->searchable()
                             ->preload()
                             ->required(),

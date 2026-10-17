@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sistema de Gestión de Mesas - TPV Modo Noche</title>
+<!-- Tailwind CSS v3 con plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Configuración personalizada de Tailwind -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              darkest: '#070b14',
+              dark: '#0b1326',
+              surface: '#111c35',
+              surfaceLight: '#182747',
+              gold: '#f59e0b',
+              goldHover: '#d97706',
+              goldLight: 'rgba(245, 158, 11, 0.12)',
+              emerald: '#10b981',
+              emeraldHover: '#059669',
+              emeraldLight: 'rgba(16, 185, 129, 0.12)',
+              rose: '#f43f5e',
+              roseLight: 'rgba(244, 63, 94, 0.12)',
+              cyan: '#06b6d4',
+              cyanLight: 'rgba(6, 182, 212, 0.12)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Estilos base e interactividad visual -->
+<style data-purpose="custom-scrollbars">
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #070b14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+<style data-purpose="table-card-effects">
+    .mesa-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mesa-card:hover {
+      transform: translateY(-2px);
+    }
+    .mesa-card:active {
+      transform: translateY(0);
+    }
+    .mesa-card.active-selected {
+      outline: 2.5px solid #f59e0b;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+    }
+    .badge-counter {
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body class="bg-brand-darkest text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-black">
+<!-- BEGIN: MainHeader -->
+<header class="bg-brand-dark border-b border-slate-800/80 sticky top-0 z-40 px-4 py-3 shadow-xl backdrop-blur-md"><div class="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl overflow-hidden shadow-lg border border-emerald-500/40 p-0.5 bg-slate-900 flex items-center justify-center">
+<img alt="Logo MesaMap" class="w-full h-full object-cover rounded-lg" src="https://lh3.googleusercontent.com/aida/AEtjO1WuyZBCayi7UiunDgHDtQeho4yUExBu0Q4I5O1ZDfMhPXcazWIJfDpum1-u_C35zoKjNASEDB_TGjEZSj1qUxBWQlWlDijWB88W0i5kL_5pIyYh75P-t3uTjhklI30-KXlKkLmUrwB0v2P5i1CPNkQO0vghrfREijbok_Gp9r63iDGu5-wDvI5Yq_Pl2XjGh_QNAbaZB4byDWpw7JB8lsQnDnHpCs_VaUGXvsVIvFVBOW-eXO0E7WHYp-A"/>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
+            Mapa de Mesas
+          </h1>
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            En Directo
+          </span>
+</div>
+<p class="text-xs text-slate-400">Servicio Noche / Cena • Plano Arquitectónico Digital</p>
+</div>
+</div>
+<button class="lg:hidden p-2 rounded-lg bg-slate-900 text-slate-300 hover:text-white border border-slate-800" id="btn-refresh">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+<div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+<div class="relative flex-1 sm:w-56">
+<svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<input class="w-full bg-[#0d121c] text-xs rounded-lg pl-9 pr-3 py-2 border border-slate-800 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors" id="search-input" placeholder="Buscar mesa o comensales..." type="text"/>
+</div>
+<div class="flex bg-[#0d121c] p-1 rounded-lg border border-slate-800 text-xs">
+<button class="zone-filter px-3 py-1.5 rounded-md font-bold text-slate-950 bg-amber-500 border border-amber-500" data-zone="all">Todas</button>
+<button class="zone-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200" data-zone="terraza">Terraza</button>
+<button class="zone-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200" data-zone="salon">Salón</button>
+<button class="zone-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200" data-zone="barra">Barra</button>
+</div>
+<div class="flex items-center gap-1.5 ml-auto lg:ml-0">
+<button class="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-xs font-bold shadow-md transition-all" id="btn-add-mesa"><svg class="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Nueva Mesa</span></button>
+<button class="hidden sm:flex p-2 rounded-lg bg-[#0d121c] border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors" id="btn-fullscreen" title="Pantalla Completa">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</div></header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+<!-- BEGIN: KpiMetricsBar -->
+<!-- Contadores clave que replican la parte superior de la imagen adaptados a Dark Mode -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4" data-purpose="kpi-metrics-grid"><div class="bg-[#0d111a] rounded-xl p-4 border border-slate-800/80 shadow-md relative overflow-hidden flex items-center justify-between"><div class="z-10"><p class="text-[10px] sm:text-xs tracking-wider uppercase font-semibold text-slate-400">DISPONIBLES</p><p class="text-3xl sm:text-4xl font-black text-amber-400 mt-1" id="kpi-disponibles">10</p><p class="text-[11px] text-slate-500 mt-0.5">Listas para asignar</p></div><div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg></div></div>
+<div class="bg-[#0d111a] rounded-xl p-4 border border-slate-800/80 shadow-md relative overflow-hidden flex items-center justify-between">
+<div class="z-10">
+<p class="text-[10px] sm:text-xs tracking-wider uppercase font-semibold text-slate-400">OCUPADAS</p>
+<p class="text-3xl sm:text-4xl font-black text-rose-400 mt-1" id="kpi-ocupadas">2</p>
+<p class="text-[11px] text-rose-400/80 mt-0.5">Promedio: 38 min</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 24 24">
+<path d="M12 2c-.3 0-.6.1-.8.4C9.5 4.5 7 8 7 11c0 3.3 2.7 6 6 6s6-2.7 6-6c0-3.3-2.5-6.6-4.2-8.6-.2-.3-.5-.4-.8-.4zm0 2.4c1.4 1.7 4 4.8 4 6.6 0 2.2-1.8 4-4 4s-4-1.8-4-4c0-1.8 2.6-4.9 4-6.6zM12 14c-.6 0-1-.4-1-1 0-1 1.2-2.3 1.8-3 .2-.3.7-.1.7.3.2 1.2-.5 3.7-1.5 3.7z"></path>
+</svg>
+</div>
+</div>
+<div class="bg-[#0d111a] border border-amber-500/30 rounded-xl p-4 shadow-md relative overflow-hidden flex items-center justify-between">
+<div class="z-10">
+<p class="text-[10px] sm:text-xs tracking-wider uppercase font-bold text-amber-300">RESERVADAS</p>
+<p class="text-3xl sm:text-4xl font-black text-amber-400 mt-1" id="kpi-reservadas">1</p>
+<p class="text-[11px] text-amber-300/80 mt-0.5">Próx. turno 21:30h</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</div>
+</div>
+<div class="bg-[#0d111a] rounded-xl p-4 border border-cyan-500/30 shadow-md relative overflow-hidden flex items-center justify-between">
+<div class="z-10">
+<p class="text-[10px] sm:text-xs tracking-wider uppercase font-semibold text-cyan-300/90">POR COBRAR</p>
+<p class="text-3xl sm:text-4xl font-black text-cyan-400 mt-1" id="kpi-cuenta">1</p>
+<p class="text-[11px] text-cyan-300/70 mt-0.5">Pendiente: $115.00</p>
+</div>
+<div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div></section>
+<!-- END: KpiMetricsBar -->
+<!-- BEGIN: MainWorkspaceLayout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- COLUMNA IZQUIERDA: PLANO DE MESAS AGRUPADO POR SECCIONES (70%) -->
+<section class="lg:col-span-8 flex flex-col gap-6" data-purpose="table-floor-plan"><!-- SECCIÓN 1: TERRAZA -->
+<article class="zone-block bg-[#090d15] border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-lg relative" data-zone-id="terraza">
+<div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div><h2 class="text-base font-extrabold tracking-wider text-slate-100 uppercase">TERRAZA</h2></div><span class="px-3 py-1 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg tracking-wide">4 mesas</span></div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4"><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="4" data-comanda="null" data-estado="DISPONIBLE" data-mesa="10" data-zona="Terraza"><span class="badge-counter absolute -top-2 -right-2 w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center border-2 border-[#090d15]">2</span><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">10</span></div><span class="chair-dot absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">4 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="2" data-comanda="null" data-estado="DISPONIBLE" data-mesa="11" data-zona="Terraza"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">11</span></div><span class="chair-dot absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">2 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="2" data-comanda="null" data-estado="DISPONIBLE" data-mesa="12" data-zona="Terraza"><span class="badge-counter absolute -top-2 -right-2 w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center border-2 border-[#090d15]">1</span><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">12</span></div><span class="chair-dot absolute left-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">2 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="6" data-comanda="null" data-estado="DISPONIBLE" data-mesa="13" data-zona="Terraza"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">13</span></div><span class="chair-dot absolute top-0 left-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">6 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button></div>
+</article>
+<!-- SECCIÓN 2: SALÓN -->
+<article class="zone-block bg-[#090d15] border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-lg relative" data-zone-id="salon">
+<div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div><h2 class="text-base font-extrabold tracking-wider text-slate-100 uppercase">SALÓN</h2></div><span class="px-3 py-1 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg tracking-wide">5 mesas</span></div>
+<div class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-3.5"><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] border border-amber-500/60 bg-amber-500/15" data-capacidad="4" data-estado="RESERVADA" data-mesa="20" data-reserva-info="Familia Gómez (21:30h)" data-zona="Salón"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/70 bg-amber-500/20 flex items-center justify-center"><span class="text-2xl font-black text-amber-300">20</span></div><span class="chair-dot absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-bold text-amber-300">4 pax</span><span class="w-full text-center py-1 rounded bg-amber-500/30 text-amber-300 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 border border-amber-500/40"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>RESERVADA</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="4" data-comanda="null" data-estado="DISPONIBLE" data-mesa="21" data-zona="Salón"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">21</span></div><span class="chair-dot absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">4 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card active-selected text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] border-2 border-rose-500 bg-rose-500/10" data-capacidad="2" data-comanda="1084" data-estado="OCUPADA" data-mesa="22" data-tiempo="42 min" data-total="115.00" data-zona="Salón"><span class="badge-counter absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-bold text-[10px]">42m</span><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-rose-500/70 bg-rose-500/20 flex flex-col items-center justify-center"><span class="text-2xl font-black text-white">22</span><span class="text-[9px] font-mono font-bold text-rose-300 mt-[-2px]">$115</span></div><span class="chair-dot absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-rose-400"></span><span class="chair-dot absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-rose-400"></span></div><span class="text-[11px] font-bold text-rose-300">2 pax</span><span class="w-full text-center py-1 rounded bg-rose-500/90 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow mt-1"><svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path clip-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.527.82-1.173 2.115-1.173 3.633 0 .428-.088.857-.23 1.256-.47-.417-1.14-.707-1.928-.707a3.5 3.5 0 00-3.5 3.5c0 1.24.64 2.33 1.606 2.978C5.007 14.137 5 14.56 5 15c0 3.866 3.134 7 7 7s7-3.134 7-7c0-2.825-1.455-5.32-3.665-6.605-.41-.238-.68-.66-.68-1.135 0-.74.32-1.41.82-1.92a1 1 0 00-.74-1.787h-.34z" fill-rule="evenodd"></path></svg>OCUPADA</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="4" data-comanda="null" data-estado="DISPONIBLE" data-mesa="23" data-zona="Salón"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">23</span></div><span class="chair-dot absolute top-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">4 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="7" data-comanda="null" data-estado="DISPONIBLE" data-mesa="45" data-zona="Salón"><span class="badge-counter absolute -top-2 -right-2 w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center border-2 border-[#090d15]">1</span><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-xl border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">45</span></div><span class="chair-dot absolute top-0 left-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute top-0 right-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 left-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute bottom-0 right-1/4 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute left-0 top-1/3 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute left-0 bottom-1/3 w-2 h-2 rounded-full bg-amber-400"></span><span class="chair-dot absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">7 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button></div>
+</article>
+<!-- SECCIÓN 3: BARRA -->
+<article class="zone-block bg-[#090d15] border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-lg relative" data-zone-id="barra">
+<div class="flex items-center justify-between border-b border-slate-800/80 pb-3 mb-4"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div><h2 class="text-base font-extrabold tracking-wider text-slate-100 uppercase">BARRA</h2></div><span class="px-3 py-1 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg tracking-wide">4 puestos</span></div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4"><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] border-rose-500/50 bg-rose-500/10" data-capacidad="1" data-comanda="1092" data-estado="OCUPADA" data-mesa="30" data-tiempo="15 min" data-total="18.50" data-zona="Barra"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-full border-2 border-rose-500/60 bg-rose-500/20 flex items-center justify-center"><span class="text-2xl font-black text-rose-300">30</span></div><span class="chair-dot absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-rose-400"></span></div><span class="text-[11px] font-bold text-rose-300">1 pax</span><span class="w-full text-center py-1 rounded bg-rose-500/90 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 shadow mt-1"><svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path clip-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.527.82-1.173 2.115-1.173 3.633 0 .428-.088.857-.23 1.256-.47-.417-1.14-.707-1.928-.707a3.5 3.5 0 00-3.5 3.5c0 1.24.64 2.33 1.606 2.978C5.007 14.137 5 14.56 5 15c0 3.866 3.134 7 7 7s7-3.134 7-7c0-2.825-1.455-5.32-3.665-6.605-.41-.238-.68-.66-.68-1.135 0-.74.32-1.41.82-1.92a1 1 0 00-.74-1.787h-.34z" fill-rule="evenodd"></path></svg>OCUPADA</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="1" data-comanda="null" data-estado="DISPONIBLE" data-mesa="31" data-zona="Barra"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-full border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">31</span></div><span class="chair-dot absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">1 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="1" data-comanda="null" data-estado="DISPONIBLE" data-mesa="32" data-zona="Barra"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-full border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">32</span></div><span class="chair-dot absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">1 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button><button class="mesa-card text-left relative rounded-xl p-3 flex flex-col justify-between items-center min-h-[165px] bg-[#0d121c] border border-slate-800" data-capacidad="1" data-comanda="null" data-estado="DISPONIBLE" data-mesa="33" data-zona="Barra"><div class="relative w-20 h-20 my-1 flex items-center justify-center"><div class="table-outline absolute inset-2 rounded-full border-2 border-amber-500/40 bg-slate-900/60 flex items-center justify-center"><span class="text-2xl font-black text-white">33</span></div><span class="chair-dot absolute top-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-amber-400"></span></div><span class="text-[11px] font-semibold text-slate-400">1 pax</span><span class="w-full text-center py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1 mt-1 shadow-sm"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>DISPONIBLE</span></button></div>
+</article></section>
+<!-- FIN COLUMNA PLANO -->
+<!-- COLUMNA DERECHA: PANEL DETALLADO DE CONTROL Y CRUD DE MESA (30%) -->
+<aside class="lg:col-span-4 bg-brand-dark border border-slate-800 rounded-2xl p-5 shadow-2xl sticky top-20" data-purpose="table-detail-panel"><!-- Cabecera del Panel -->
+<div class="flex items-start justify-between border-b border-slate-800 pb-4 mb-4">
+<div>
+<div class="flex items-center gap-2">
+<span class="text-xs uppercase font-bold tracking-wider text-emerald-400" id="detail-zone">Salón Principal</span>
+<span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+<span class="text-xs text-cyan-400 font-mono" id="detail-id-label">#M-22</span>
+</div>
+<h3 class="text-2xl font-black text-white mt-1 flex items-center gap-2">
+<span>Mesa</span>
+<span class="text-emerald-400 text-3xl font-black" id="detail-number">22</span>
+</h3>
+</div>
+<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5" id="detail-badge-status">
+<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+    Ocupada (2 pax)
+  </span>
+</div>
+<!-- Ficha de Datos Operativos -->
+<div class="space-y-3 bg-[#0d121c] p-3.5 rounded-xl border border-slate-800/90 text-xs">
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">Camarero Asignado:</span>
+<span class="font-semibold text-white" id="detail-waiter">Carlos Méndez</span>
+</div>
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">Permanencia:</span>
+<span class="font-semibold text-amber-400" id="detail-time">42 minutos</span>
+</div>
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">Nº Comanda:</span>
+<span class="font-mono text-cyan-400 font-bold" id="detail-order-number">#1084</span>
+</div>
+<div class="flex justify-between items-center text-slate-300">
+<span class="text-slate-400">Capacidad Máx:</span>
+<span class="font-semibold text-white" id="detail-capacity">2 Comensales</span>
+</div>
+</div>
+<!-- Contenedor dinámico de Comanda Activa -->
+<div class="mt-4" id="detail-order-wrapper">
+<div class="flex items-center justify-between text-xs font-bold text-slate-300 mb-2">
+<span class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      Comanda en Curso
+    </span>
+<span class="text-emerald-400 font-semibold">3 artículos</span>
+</div>
+<div class="space-y-2 max-h-44 overflow-y-auto pr-1" id="order-items-list">
+<div class="flex items-center justify-between bg-[#0a0f18] p-2.5 rounded-lg border border-slate-800 text-xs">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">1x</span>
+<span class="text-slate-200">Jamón Ibérico Bellota</span>
+</div>
+<span class="font-semibold text-slate-100">$24.00</span>
+</div>
+<div class="flex items-center justify-between bg-[#0a0f18] p-2.5 rounded-lg border border-slate-800 text-xs">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">2x</span>
+<span class="text-slate-200">Solomillo al Foie</span>
+</div>
+<span class="font-semibold text-slate-100">$56.00</span>
+</div>
+<div class="flex items-center justify-between bg-[#0a0f18] p-2.5 rounded-lg border border-slate-800 text-xs">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-[10px]">1x</span>
+<span class="text-slate-200">Ribera del Duero Crianza</span>
+</div>
+<span class="font-semibold text-slate-100">$35.00</span>
+</div>
+</div>
+<!-- Total de la Mesa -->
+<div class="mt-3 pt-3 border-t border-slate-800 flex justify-between items-baseline">
+<span class="text-xs uppercase tracking-wider font-bold text-slate-400">Total a Pagar</span>
+<span class="text-3xl font-black text-emerald-400" id="detail-total-amount">$115.00</span>
+</div>
+</div>
+<!-- Botones de Acción Primaria -->
+<div class="mt-5 space-y-2"><button class="w-full py-3 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-black rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20" id="btn-open-comanda"><svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Ver / Gestionar Comanda</span></button><button class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-md" id="btn-charge"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><span>Cobrar Cuenta / Imprimir Factura</span></button></div>
+<!-- Acciones Rápidas Secundarias Táctiles (CRUD) -->
+<div class="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
+<button class="p-2.5 rounded-lg bg-[#0d121c] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors" id="btn-switch-table">
+<svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    Cambiar Mesa
+  </button>
+<button class="p-2.5 rounded-lg bg-[#0d121c] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors" id="btn-merge-table">
+<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    Unir Mesas
+  </button>
+<button class="p-2.5 rounded-lg bg-[#0d121c] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors" id="btn-toggle-status">
+<svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    Cambiar Estado
+  </button>
+<button class="p-2.5 rounded-lg bg-[#0d121c] border border-slate-800 hover:bg-slate-800 hover:text-white text-center flex items-center justify-center gap-1.5 transition-colors text-rose-400" id="btn-free-table">
+<svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    Liberar Mesa
+  </button>
+</div></aside>
+<!-- FIN COLUMNA DERECHA -->
+</div>
+<!-- END: MainWorkspaceLayout -->
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: ModalNuevaMesa -->
+<div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4" id="modal-new-table">
+<div class="bg-brand-dark border border-amber-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+<div class="flex items-center justify-between pb-3 border-b border-slate-800">
+<h3 class="text-lg font-bold text-white flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+          Añadir Nueva Mesa al Plano
+        </h3>
+<button class="text-slate-400 hover:text-white p-1" id="modal-close-btn">✕</button>
+</div>
+<form class="mt-4 space-y-4" id="form-new-table">
+<div>
+<label class="block text-xs font-semibold text-slate-300 mb-1">Número o Código de Mesa</label>
+<input class="w-full bg-brand-surface border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none" id="input-mesa-num" placeholder="Ej: 50" required="" type="number"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-300 mb-1">Zona Asignada</label>
+<select class="w-full bg-brand-surface border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none" id="select-mesa-zona">
+<option value="terraza">Terraza</option>
+<option value="salon">Salón</option>
+<option value="barra">Barra</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-300 mb-1">Capacidad Comensales (Pax)</label>
+<input class="w-full bg-brand-surface border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:border-amber-500 focus:outline-none" id="input-mesa-pax" max="20" min="1" type="number" value="4"/>
+</div>
+<div class="pt-3 flex gap-2">
+<button class="flex-1 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors" id="modal-cancel-btn" type="button">Cancelar</button>
+<button class="flex-1 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition-colors" type="submit">Guardar Mesa</button>
+</div>
+</form>
+</div>
+</div>
+<!-- END: ModalNuevaMesa -->
+<!-- Toast de Notificación Táctil -->
+<div class="fixed bottom-5 right-5 bg-slate-900 border border-amber-500 text-amber-400 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50" id="toast-feedback">
+<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span id="toast-message">Mesa seleccionada</span>
+</div>
+<!-- BEGIN: InteractiveHandlers -->
+<script data-purpose="table-selection-and-actions">
+    // Mock data para enriquecer la selección de mesas
+    const tablesData = {
+      '10': { zona: 'Terraza', capacidad: 4, estado: 'DISPONIBLE', camarero: 'Ana R.', comanda: null, tiempo: '-', total: 0 },
+      '11': { zona: 'Terraza', capacidad: 2, estado: 'DISPONIBLE', camarero: 'Ana R.', comanda: null, tiempo: '-', total: 0 },
+      '12': { zona: 'Terraza', capacidad: 2, estado: 'DISPONIBLE', camarero: 'Sin Asignar', comanda: null, tiempo: '-', total: 0 },
+      '13': { zona: 'Terraza', capacidad: 6, estado: 'DISPONIBLE', camarero: 'Sin Asignar', comanda: null, tiempo: '-', total: 0 },
+      '20': { zona: 'Salón Principal', capacidad: 4, estado: 'RESERVADA', camarero: 'Carlos M.', comanda: null, tiempo: 'Reserva 21:30', total: 0, cliente: 'Familia Gómez' },
+      '21': { zona: 'Salón Principal', capacidad: 4, estado: 'DISPONIBLE', camarero: 'Carlos M.', comanda: null, tiempo: '-', total: 0 },
+      '22': { 
+        zona: 'Salón Principal', 
+        capacidad: 2, 
+        estado: 'OCUPADA', 
+        camarero: 'Carlos M.', 
+        comanda: '1084', 
+        tiempo: '42 min', 
+        total: 115.00,
+        items: [
+          { qty: 1, name: 'Jamón Ibérico Bellota', price: 24.00 },
+          { qty: 2, name: 'Solomillo al Foie', price: 56.00 },
+          { qty: 1, name: 'Ribera del Duero Crianza', price: 35.00 }
+        ] 
+      },
+      '23': { zona: 'Salón Principal', capacidad: 4, estado: 'DISPONIBLE', camarero: 'Lucía B.', comanda: null, tiempo: '-', total: 0 },
+      '45': { zona: 'Salón Principal', capacidad: 7, estado: 'DISPONIBLE', camarero: 'Lucía B.', comanda: null, tiempo: '-', total: 0 },
+      '30': { 
+        zona: 'Barra', 
+        capacidad: 1, 
+        estado: 'OCUPADA', 
+        camarero: 'Roberto V.', 
+        comanda: '1092', 
+        tiempo: '15 min', 
+        total: 18.50,
+        items: [
+          { qty: 2, name: 'Copa Cerveza Artesanal', price: 8.50 },
+          { qty: 1, name: 'Tapa de Queso Manchego', price: 10.00 }
+        ]
+      },
+      '31': { zona: 'Barra', capacidad: 1, estado: 'DISPONIBLE', camarero: 'Roberto V.', comanda: null, tiempo: '-', total: 0 },
+      '32': { zona: 'Barra', capacidad: 1, estado: 'DISPONIBLE', camarero: 'Roberto V.', comanda: null, tiempo: '-', total: 0 },
+      '33': { zona: 'Barra', capacidad: 1, estado: 'DISPONIBLE', camarero: 'Roberto V.', comanda: null, tiempo: '-', total: 0 }
+    };
+
+    let selectedTableNum = '22';
+
+    // Función toast
+    function showToast(msg) {
+      const toast = document.getElementById('toast-feedback');
+      const text = document.getElementById('toast-message');
+      text.innerText = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 2500);
+    }
+
+    // Actualizar Panel Lateral con la mesa seleccionada
+    function updateDetailPanel(num) {
+      selectedTableNum = num;
+      const data = tablesData[num] || {
+        zona: 'Personalizada',
+        capacidad: 4,
+        estado: 'DISPONIBLE',
+        camarero: 'Por Asignar',
+        comanda: null,
+        tiempo: '-',
+        total: 0
+      };
+
+      document.getElementById('detail-number').innerText = num;
+      document.getElementById('detail-id-label').innerText = `#M-${num}`;
+      document.getElementById('detail-zone').innerText = data.zona;
+      document.getElementById('detail-waiter').innerText = data.camarero;
+      document.getElementById('detail-time').innerText = data.tiempo;
+      document.getElementById('detail-capacity').innerText = `${data.capacidad} Comensales`;
+      document.getElementById('detail-order-number').innerText = data.comanda ? `#${data.comanda}` : 'Sin Comanda';
+      document.getElementById('detail-total-amount').innerText = `$${Number(data.total).toFixed(2)}`;
+
+      const badge = document.getElementById('detail-badge-status');
+      if(data.estado === 'OCUPADA') {
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Ocupada (${data.capacidad} pax)`;
+      } else if(data.estado === 'RESERVADA') {
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> Reservada`;
+      } else {
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5';
+        badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Disponible`;
+      }
+
+      // Render comanda
+      const itemsList = document.getElementById('order-items-list');
+      if (data.items && data.items.length > 0) {
+        itemsList.innerHTML = data.items.map(item => `
+          <div class="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-[10px]">${item.qty}x</span>
+              <span class="text-slate-200">${item.name}</span>
+            </div>
+            <span class="font-semibold text-slate-100">$${(item.price * item.qty).toFixed(2)}</span>
+          </div>
+        `).join('');
+      } else {
+        itemsList.innerHTML = `
+          <div class="py-6 text-center text-slate-500 text-xs bg-slate-900/40 rounded-lg border border-dashed border-slate-800">
+            Mesa lista y sin consumición activa
+          </div>
+        `;
+      }
+    }
+
+    // Vincular click en las mesas del plano
+    document.querySelectorAll('.mesa-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.mesa-card').forEach(c => c.classList.remove('active-selected'));
+        card.classList.add('active-selected');
+        const num = card.getAttribute('data-mesa');
+        updateDetailPanel(num);
+        showToast(`Mesa ${num} seleccionada para gestión`);
+      });
+    });
+
+    // Filtros de zona
+    document.querySelectorAll('.zone-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.zone-filter').forEach(b => {
+          b.className = 'zone-filter px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-slate-200';
+        });
+        btn.className = 'zone-filter px-3 py-1.5 rounded-md font-medium text-amber-400 bg-brand-surfaceLight border border-amber-500/30';
+
+        const filter = btn.getAttribute('data-zone');
+        document.querySelectorAll('.zone-block').forEach(zone => {
+          if (filter === 'all' || zone.getAttribute('data-zone-id') === filter) {
+            zone.classList.remove('hidden');
+          } else {
+            zone.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    // Buscador rápido
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      document.querySelectorAll('.mesa-card').forEach(card => {
+        const mesaNum = card.getAttribute('data-mesa');
+        const zona = (card.getAttribute('data-zona') || '').toLowerCase();
+        if (mesaNum.includes(query) || zona.includes(query)) {
+          card.classList.remove('opacity-25');
+        } else {
+          card.classList.add('opacity-25');
+        }
+      });
+    });
+
+    // Acciones de Botones Laterales
+    document.getElementById('btn-charge').addEventListener('click', () => {
+      showToast(`Factura emitida para Mesa ${selectedTableNum}. Cuenta cobrada con éxito.`);
+    });
+
+    document.getElementById('btn-open-comanda').addEventListener('click', () => {
+      showToast(`Abriendo comanda digital de la Mesa ${selectedTableNum}...`);
+    });
+
+    document.getElementById('btn-free-table').addEventListener('click', () => {
+      if (tablesData[selectedTableNum]) {
+        tablesData[selectedTableNum].estado = 'DISPONIBLE';
+        tablesData[selectedTableNum].comanda = null;
+        tablesData[selectedTableNum].tiempo = '-';
+        tablesData[selectedTableNum].total = 0;
+        tablesData[selectedTableNum].items = [];
+        updateDetailPanel(selectedTableNum);
+        showToast(`Mesa ${selectedTableNum} ahora se encuentra libre y limpia.`);
+      }
+    });
+
+    document.getElementById('btn-toggle-status').addEventListener('click', () => {
+      const curr = tablesData[selectedTableNum]?.estado || 'DISPONIBLE';
+      const next = curr === 'DISPONIBLE' ? 'RESERVADA' : (curr === 'RESERVADA' ? 'OCUPADA' : 'DISPONIBLE');
+      if (tablesData[selectedTableNum]) {
+        tablesData[selectedTableNum].estado = next;
+        updateDetailPanel(selectedTableNum);
+        showToast(`Estado de Mesa ${selectedTableNum} cambiado a: ${next}`);
+      }
+    });
+
+    document.getElementById('btn-switch-table').addEventListener('click', () => {
+      showToast(`Seleccione la mesa de destino para transferir comanda ${selectedTableNum}`);
+    });
+
+    document.getElementById('btn-merge-table').addEventListener('click', () => {
+      showToast(`Modo unión activado: toque la mesa adyacente para agrupar`);
+    });
+
+    // Modal Crear Nueva Mesa (CRUD)
+    const modal = document.getElementById('modal-new-table');
+    document.getElementById('btn-add-mesa').addEventListener('click', () => {
+      modal.classList.remove('hidden');
+    });
+    document.getElementById('modal-close-btn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+    document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    document.getElementById('form-new-table').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const num = document.getElementById('input-mesa-num').value;
+      const zona = document.getElementById('select-mesa-zona').value;
+      const pax = document.getElementById('input-mesa-pax').value;
+
+      tablesData[num] = {
+        zona: zona.toUpperCase(),
+        capacidad: pax,
+        estado: 'DISPONIBLE',
+        camarero: 'Por Asignar',
+        comanda: null,
+        tiempo: '-',
+        total: 0
+      };
+
+      showToast(`Mesa ${num} (${pax} pax) dada de alta correctamente.`);
+      modal.classList.add('hidden');
+    });
+
+    // Refrescar y Fullscreen
+    document.getElementById('btn-refresh')?.addEventListener('click', () => {
+      showToast('Sincronizando estados en directo...');
+    });
+
+    document.getElementById('btn-fullscreen')?.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+  </script>
+<!-- END: InteractiveHandlers -->
+</body></html>

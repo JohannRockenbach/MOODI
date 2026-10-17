@@ -201,7 +201,7 @@ class CheckWeatherPromo extends Command
         $this->info("✅ Oportunidad detectada: {$scenario}");
 
         $admins = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['super_admin', 'administrador']);
+            $query->where('name', 'super_admin');
         })->get();
 
         if ($admins->isEmpty()) {

@@ -17,11 +17,16 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased text-gray-800">
+<body class="bg-gray-50 font-sans antialiased text-gray-800 overflow-x-hidden">
 
     {{-- Header del cliente --}}
     <header class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        @php
+            $safeHeaderName = \App\Support\DisplayText::plain(auth()->user()?->name, 'Usuario');
+            $safeHeaderEmail = \App\Support\DisplayText::plain(auth()->user()?->email, 'sin-email@local');
+        @endphp
+
+        <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-3">
 
             {{-- Logo --}}
             <a href="{{ url('/') }}" class="text-3xl font-black tracking-tight text-orange-600">
@@ -37,9 +42,9 @@
                     class="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition"
                 >
                     <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600 font-black text-sm">
-                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        {{ strtoupper(substr($safeHeaderName, 0, 1)) }}
                     </span>
-                    <span class="hidden sm:block max-w-[140px] truncate">{{ auth()->user()->name }}</span>
+                    <span class="hidden sm:block max-w-[140px] truncate">{{ $safeHeaderName }}</span>
                     <svg class="h-4 w-4 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>
                     </svg>
@@ -59,7 +64,7 @@
                 >
                     <div class="px-4 py-3">
                         <p class="text-xs text-gray-500">Conectado como</p>
-                        <p class="mt-0.5 truncate text-sm font-bold text-gray-900">{{ auth()->user()->email }}</p>
+                        <p class="mt-0.5 truncate text-sm font-bold text-gray-900">{{ $safeHeaderEmail }}</p>
                     </div>
 
                     <div class="py-1">

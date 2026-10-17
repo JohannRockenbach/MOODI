@@ -26,6 +26,16 @@ class DatabaseSeeder extends Seeder
         // $this->call(\Database\Seeders\CategorySeeder::class);
         // $this->call(\Database\Seeders\OrderReservationSaleSeeder::class);
 
+        // Fase 0 (obligatoria): roles y permisos base ANTES que cualquier seeder
+        // dependiente de usuarios/roles/permisos. Ambos son idempotentes:
+        // SuperAdminSeeder usa firstOrCreate y ShieldSeeder regenera permisos sin duplicar.
+        try {
+            $this->call(SuperAdminSeeder::class);
+            $this->call(ShieldSeeder::class);
+        } catch (\Throwable $e) {
+            $this->command->warn('Seeders base (SuperAdmin/Shield) no ejecutados: ' . $e->getMessage());
+        }
+
         // Ejecutamos solo el nuevo seeder de hamburguesería
         $this->call([
             BurgerMenuSeeder::class,

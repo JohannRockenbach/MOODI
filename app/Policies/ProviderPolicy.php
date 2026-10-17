@@ -11,11 +11,20 @@ class ProviderPolicy
     use HandlesAuthorization;
 
     /**
+     * Pre-authorization: solo 'super_admin' hace bypass de las comprobaciones.
+     * Devolver null deja que los métodos por habilidad decidan (denegado por defecto).
+     */
+    public function before(User $user): ?bool
+    {
+        return $user->hasRole('super_admin') ? true : null;
+    }
+
+    /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -23,7 +32,7 @@ class ProviderPolicy
      */
     public function view(User $user, Provider $provider): bool
     {
-        return $user->can('view_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -31,7 +40,7 @@ class ProviderPolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -39,7 +48,7 @@ class ProviderPolicy
      */
     public function update(User $user, Provider $provider): bool
     {
-        return $user->can('update_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -47,7 +56,7 @@ class ProviderPolicy
      */
     public function delete(User $user, Provider $provider): bool
     {
-        return $user->can('delete_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -55,7 +64,7 @@ class ProviderPolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -63,7 +72,7 @@ class ProviderPolicy
      */
     public function forceDelete(User $user, Provider $provider): bool
     {
-        return $user->can('force_delete_provider');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -71,7 +80,7 @@ class ProviderPolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('force_delete_any_provider');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -79,7 +88,7 @@ class ProviderPolicy
      */
     public function restore(User $user, Provider $provider): bool
     {
-        return $user->can('restore_provider');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -87,7 +96,7 @@ class ProviderPolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('restore_any_provider');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -95,7 +104,7 @@ class ProviderPolicy
      */
     public function replicate(User $user, Provider $provider): bool
     {
-        return $user->can('replicate_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -103,6 +112,6 @@ class ProviderPolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('reorder_provider');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 }

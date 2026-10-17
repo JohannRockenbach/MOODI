@@ -27,11 +27,14 @@ class SaleFactory extends Factory
             'sale_date' => $this->faker->dateTimeBetween('-1 month', 'now'),
             'total_amount' => $this->faker->randomFloat(2, 1000, 50000),
             'payment_method' => $this->faker->randomElement(['efectivo', 'tarjeta_debito', 'tarjeta_credito', 'transferencia', 'mercado_pago']),
-            'status' => $this->faker->randomElement(['completada', 'pendiente', 'cancelada']),
+            'status' => $this->faker->randomElement(['paid', 'pending']),
             'order_id' => Order::factory(),
             'restaurant_id' => Restaurant::factory(),
-            'user_id' => User::factory(),
+            'cashier_id' => User::factory(),
             'caja_id' => null, // Optional, can be set manually
+            'annulled_at' => null,
+            'annulled_by' => null,
+            'annulled_reason' => null,
         ];
     }
 
@@ -41,7 +44,7 @@ class SaleFactory extends Factory
     public function completed(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'completada',
+            'status' => 'paid',
         ]);
     }
 
@@ -51,7 +54,7 @@ class SaleFactory extends Factory
     public function pending(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'pendiente',
+            'status' => 'pending',
         ]);
     }
 
@@ -61,7 +64,9 @@ class SaleFactory extends Factory
     public function cancelled(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'cancelada',
+            'status' => 'annulled',
+            'annulled_at' => now(),
+            'annulled_reason' => 'Anulación de prueba',
         ]);
     }
 

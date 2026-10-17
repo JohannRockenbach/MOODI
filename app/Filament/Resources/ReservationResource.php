@@ -26,6 +26,16 @@ class ReservationResource extends Resource
     protected static ?string $pluralModelLabel = 'Reservas';
     protected static ?string $navigationLabel = 'Reservas';
 
+    /**
+     * La navegación de la tabla queda oculta: la pantalla Stitch
+     * (GestionReservas) la reemplaza en el menú. El resource sigue accesible
+     * por URL (las páginas delegan en create/edit).
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([

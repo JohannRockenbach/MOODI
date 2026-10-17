@@ -23,77 +23,76 @@ class ReservationFactory extends Factory
     public function definition(): array
     {
         return [
-            'reservation_date' => $this->faker->dateTimeBetween('now', '+1 month'),
-            'customer_name' => $this->faker->name(),
-            'customer_phone' => $this->faker->numerify('11########'),
-            'number_of_people' => $this->faker->numberBetween(1, 10),
-            'status' => $this->faker->randomElement(['pendiente', 'confirmada', 'cancelada', 'completada']),
-            'special_requests' => $this->faker->optional(0.3)->sentence(),
+            // La fecha y hora exactas para la cual se hizo la reserva.
+            'reservation_time' => $this->faker->dateTimeBetween('now', '+1 month'),
+
+            // La cantidad de comensales para la reserva.
+            'guest_count' => $this->faker->numberBetween(1, 10),
+
+            // Estado de la reserva (valores de la app: pending | confirmed | cancelled).
+            'status' => 'pending',
+
+            // El cliente que hizo la reserva (customer_id -> users).
+            // En MOODI los clientes son usuarios; el rol 'cliente' es un User.
+            'customer_id' => User::factory(),
+
+            // La mesa reservada.
             'table_id' => Table::factory(),
-            'user_id' => User::factory(),
+
+            // La reserva pertenece a un restaurante.
             'restaurant_id' => Restaurant::factory(),
         ];
     }
 
     /**
-     * Estado pendiente
+     * Estado pendiente.
      */
     public function pending(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'pendiente',
+            'status' => 'pending',
         ]);
     }
 
     /**
-     * Estado confirmada
+     * Estado confirmada.
      */
     public function confirmed(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'confirmada',
+            'status' => 'confirmed',
         ]);
     }
 
     /**
-     * Estado cancelada
+     * Estado cancelada.
      */
     public function cancelled(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'cancelada',
+            'status' => 'cancelled',
         ]);
     }
 
     /**
-     * Estado completada
-     */
-    public function completed(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'completada',
-        ]);
-    }
-
-    /**
-     * Reserva para fecha futura
+     * Reserva para fecha futura.
      */
     public function upcoming(): static
     {
         return $this->state(fn (array $attributes) => [
-            'reservation_date' => $this->faker->dateTimeBetween('+1 day', '+2 weeks'),
-            'status' => 'confirmada',
+            'reservation_time' => $this->faker->dateTimeBetween('+1 day', '+2 weeks'),
+            'status' => 'confirmed',
         ]);
     }
 
     /**
-     * Reserva para hoy
+     * Reserva para hoy.
      */
     public function today(): static
     {
         return $this->state(fn (array $attributes) => [
-            'reservation_date' => $this->faker->dateTimeBetween('now', 'today 23:59:59'),
-            'status' => 'confirmada',
+            'reservation_time' => $this->faker->dateTimeBetween('now', 'today 23:59:59'),
+            'status' => 'confirmed',
         ]);
     }
 }

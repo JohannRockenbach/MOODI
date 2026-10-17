@@ -23,42 +23,69 @@ class OrderStatusSelector extends Component
     {
         $order = Order::find($this->orderId);
         
-        // Validar que no se retroceda de completado
-        if ($order->status === 'completed' && in_array($value, ['pending', 'processing'])) {
+        if (!$order) {
+            $this->status = 'pending';
+            return;
+        }
+        
+        // Define valid transitions
+        $validTransitions = [
+            'pending' => ['processing', 'cancelled'],
+            'processing' => ['ready_for_pickup', 'cancelled'],
+            'ready_for_pickup' => ['completed'],
+            'completed' => [],
+            'cancelled' => [],
+        ];
+        
+        $currentStatus = $order->status;
+        $allowed = $validTransitions[$currentStatus] ?? [];
+        
+        if (!in_array($value, $allowed)) {
             Notification::make()
                 ->danger()
-                ->title('Acción no permitida')
-                ->body('No se puede retroceder de un pedido completado.')
+                ->title('Transición no permitida')
+                ->body("No se puede cambiar de '{$currentStatus}' a '{$value}'.")
                 ->send();
             
-            // Revertir al estado anterior
             $this->status = $order->status;
             return;
         }
         
-        // Guardar el nuevo estado
-        $oldStatus = $order->status;
         $order->status = $value;
         $order->save();
         
-        // Notificación de éxito
+        $statusLabels = [
+            'pending' => '🟡 Pendiente',
+            'processing' => '🔵 En Proceso',
+            'ready_for_pickup' => '🟠 Listo para Retirar',
+            'completed' => '🟢 Completado',
+            'cancelled' => '🔴 Cancelado',
+        ];
+        
         Notification::make()
             ->success()
             ->title('Estado actualizado')
-            ->body('Pedido #' . $order->id . ' → ' . match($value) {
-                'pending' => '🟡 Pendiente',
-                'processing' => '🔵 En Proceso',
-                'completed' => '🟢 Completado',
-                default => $value
-            })
+            ->body('Pedido #' . $order->id . ' → ' . ($statusLabels[$value] ?? $value))
             ->send();
         
-        // Emitir evento para refrescar la tabla padre
         $this->dispatch('order-updated');
     }
     
     public function render()
     {
-        return view('livewire.order-status-selector');
+        $validTransitions = [
+            'pending' => ['processing', 'cancelled'],
+            'processing' => ['ready_for_pickup', 'cancelled'],
+            'ready_for_pickup' => ['completed'],
+            'completed' => [],
+            'cancelled' => [],
+        ];
+        
+        $currentStatus = $this->status;
+        $allowedNext = $validTransitions[$currentStatus] ?? [];
+        
+        return view('livewire.order-status-selector', [
+            'allowedStatuses' => array_merge([$currentStatus], $allowedNext),
+        ]);
     }
 }

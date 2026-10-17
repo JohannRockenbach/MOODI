@@ -125,13 +125,41 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Cliente::class);
     }
 
+    /**
+     * Registros de auditoría de acciones críticas ejecutadas por este usuario.
+     */
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class);
+    }
+
+    /**
+     * Auditoría (TAREA 2.1): alta y baja de usuario. Se registra desde el
+     * modelo (punto único) y NO con datos sensibles: solo identidad básica.
+     * Cubre UserResource y cualquier otro flujo de creación/delete.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            \App\Services\AuditService::record('user.created', $user, [
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+        });
+
+        static::deleted(function (User $user) {
+            \App\Services\AuditService::record('user.deleted', $user, [
+                'name' => $user->name,
+                'email' => $user->email,
+            ]);
+        });
+    }
+
     // --- ESTA ES LA FUNCIÓN QUE ARREGLA EL 403 ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // Solo permite entrar a Johann y al Admin de respaldo
-        return in_array($this->email, [
-            'rockenbachjohann@gmail.com',
-            'admin@moodi.com',
-        ]);
+        // Panel access is granted by role (single-restaurant MOODI).
+        // 'cliente' role (web self-service) must NOT access the admin panel.
+        return $this->hasAnyRole(['super_admin', 'Mozo', 'Cajero', 'Cocinero']);
     }
 }

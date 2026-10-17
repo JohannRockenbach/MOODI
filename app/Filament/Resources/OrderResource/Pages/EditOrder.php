@@ -4,11 +4,20 @@ namespace App\Filament\Resources\OrderResource\Pages;
 
 use App\Filament\Resources\OrderResource;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\Facades\Log;
 
 class EditOrder extends EditRecord
 {
     protected static string $resource = OrderResource::class;
+
+    protected static string $view = 'filament.resources.order-resource.pages.edit-order';
+
+    /**
+     * Edición operativa a ancho completo, con el lenguaje visual Stitch del
+     * padre (GestionPedidos — "Restaurante El Fogón").
+     */
+    protected ?string $maxContentWidth = MaxWidth::Full->value;
     
     // 🔒 Propiedades para detectar si se abrió desde el mapa
     public bool $isLockedFromMap = false;

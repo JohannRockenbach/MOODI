@@ -11,11 +11,20 @@ class TablePolicy
     use HandlesAuthorization;
 
     /**
+     * Pre-authorization: only 'super_admin' bypasses the per-ability checks.
+     * Returning null lets the ability methods below decide (all deny by default).
+     */
+    public function before(User $user): ?bool
+    {
+        return $user->hasRole('super_admin') ? true : null;
+    }
+
+    /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->can('view_any_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -23,7 +32,7 @@ class TablePolicy
      */
     public function view(User $user, Table $table): bool
     {
-        return $user->can('view_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -31,7 +40,7 @@ class TablePolicy
      */
     public function create(User $user): bool
     {
-        return $user->can('create_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -39,7 +48,7 @@ class TablePolicy
      */
     public function update(User $user, Table $table): bool
     {
-        return $user->can('update_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -47,7 +56,7 @@ class TablePolicy
      */
     public function delete(User $user, Table $table): bool
     {
-        return $user->can('delete_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
 
     /**
@@ -55,15 +64,19 @@ class TablePolicy
      */
     public function deleteAny(User $user): bool
     {
-        return $user->can('delete_any_table');
+        return $user->hasAnyRole(['super_admin', 'Mozo', 'Cajero']);
     }
+
+    /**
+     * Las mesas NO usan soft deletes: restore/forceDelete no aplican y se deniegan.
+     */
 
     /**
      * Determine whether the user can permanently delete.
      */
     public function forceDelete(User $user, Table $table): bool
     {
-        return $user->can('{{ ForceDelete }}');
+        return false;
     }
 
     /**
@@ -71,7 +84,7 @@ class TablePolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        return $user->can('{{ ForceDeleteAny }}');
+        return false;
     }
 
     /**
@@ -79,7 +92,7 @@ class TablePolicy
      */
     public function restore(User $user, Table $table): bool
     {
-        return $user->can('{{ Restore }}');
+        return false;
     }
 
     /**
@@ -87,7 +100,7 @@ class TablePolicy
      */
     public function restoreAny(User $user): bool
     {
-        return $user->can('{{ RestoreAny }}');
+        return false;
     }
 
     /**
@@ -95,7 +108,7 @@ class TablePolicy
      */
     public function replicate(User $user, Table $table): bool
     {
-        return $user->can('{{ Replicate }}');
+        return false;
     }
 
     /**
@@ -103,6 +116,6 @@ class TablePolicy
      */
     public function reorder(User $user): bool
     {
-        return $user->can('{{ Reorder }}');
+        return false;
     }
 }

@@ -94,6 +94,13 @@ class ClienteResource extends Resource
                     ->sortable()
                     ->placeholder('-'),
 
+                Tables\Columns\TextColumn::make('loyalty_points')
+                    ->label('Puntos')
+                    ->sortable()
+                    ->badge()
+                    ->color('warning')
+                    ->alignCenter(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha de Registro')
                     ->dateTime('d/m/Y H:i')
@@ -154,5 +161,17 @@ class ClienteResource extends Resource
         return $query->withoutGlobalScopes([
             SoftDeletingScope::class,
         ]);
+    }
+
+    /**
+     * El Cocinero solo opera Cocina + Recetas: queda fuera de la gestión de
+     * clientes (administración). El resto de roles conserva su acceso
+     * actual (la página no tiene policy propia: Filament permite por defecto
+     * a los usuarios autenticados).
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
     }
 }

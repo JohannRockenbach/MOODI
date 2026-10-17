@@ -67,9 +67,9 @@ class IngredientsRelationManager extends RelationManager
                                     ->label('Stock Actual')
                                     ->numeric()
                                     ->default(0)
-                                    ->disabled(fn ($context) => $context === 'edit')
-                                    ->dehydrated(fn ($context) => $context !== 'edit')
-                                    ->helperText('El stock solo puede modificarse desde la pantalla de Ingredientes'),
+                                    ->dehydrated(false)
+                                    ->disabled()
+                                    ->helperText('El stock se calcula desde los lotes del ingrediente'),
 
                                 Forms\Components\TextInput::make('min_stock')
                                     ->label('Stock Mínimo')
@@ -137,12 +137,13 @@ class IngredientsRelationManager extends RelationManager
                     ->placeholder('No especificada')
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('current_stock')
+                Tables\Columns\TextColumn::make('total_stock')
                     ->label('Stock Actual')
+                    ->state(fn (\App\Models\Ingredient $record): float => $record->total_stock)
                     ->numeric()
                     ->sortable()
-                    ->color(fn ($record) => $record->current_stock <= $record->min_stock ? 'danger' : 'success')
-                    ->weight(fn ($record) => $record->current_stock <= $record->min_stock ? 'bold' : 'normal')
+                    ->color(fn ($record) => $record->total_stock <= $record->min_stock ? 'danger' : 'success')
+                    ->weight(fn ($record) => $record->total_stock <= $record->min_stock ? 'bold' : 'normal')
                     ->suffix(fn ($record) => ' ' . $record->measurement_unit),
 
                 Tables\Columns\TextColumn::make('min_stock')
@@ -161,7 +162,9 @@ class IngredientsRelationManager extends RelationManager
             ->filters([
                 Tables\Filters\Filter::make('stock_bajo')
                     ->label('Stock Bajo')
-                    ->query(fn (Builder $query): Builder => $query->whereColumn('current_stock', '<=', 'min_stock'))
+                    ->query(fn (Builder $query): Builder => $query->whereRaw(
+                        '(SELECT COALESCE(SUM(ib.quantity), 0) FROM ingredient_batches ib WHERE ib.ingredient_id = ingredients.id) <= ingredients.min_stock'
+                    ))
                     ->toggle(),
             ])
             ->headerActions([

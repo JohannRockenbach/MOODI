@@ -21,6 +21,7 @@ class LatestOrders extends BaseWidget
             ->query(
                 Order::query()
                     ->with(['user', 'table', 'orderProducts.product'])
+                    ->where('restaurant_id', 1)
                     ->latest('created_at')
                     ->limit(5)
             )

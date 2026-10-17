@@ -33,7 +33,7 @@ class AuthServiceProvider extends ServiceProvider
 
         // Simple Gate: admin role bypass (if Spatie present this will call hasRole())
         Gate::before(function ($user, $ability) {
-            if (method_exists($user, 'hasRole') && $user->hasRole('admin')) {
+            if (method_exists($user, 'hasRole') && $user->hasRole('super_admin')) {
                 return true;
             }
         });

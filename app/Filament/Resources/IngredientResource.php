@@ -6,8 +6,10 @@ use App\Filament\Resources\IngredientResource\Pages;
 use App\Filament\Resources\IngredientResource\RelationManagers;
 use App\Models\Ingredient;
 use App\Models\Restaurant; // <-- Importante
+use App\Services\StockDeductionService;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -176,6 +178,62 @@ class IngredientResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+
+                // Merma (TAREA 2.2 / CU-003.1): motivo OBLIGATORIO, cantidad > 0
+                // y rechazo si supera el stock disponible. Solo super_admin:
+                // el Cajero opera cobros (no stock); la decisión se documentó
+                // en el plan de la tarea. Defensa en profundidad en la acción.
+                Tables\Actions\Action::make('registrarMerma')
+                    ->label('Registrar merma')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->iconButton()
+                    ->tooltip('Registrar merma de stock')
+                    ->extraAttributes(['aria-label' => 'Registrar merma de stock'])
+                    ->visible(fn (): bool => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->modalHeading(fn (Ingredient $record): string => 'Registrar merma · '.$record->name)
+                    ->modalDescription(fn (Ingredient $record): string => 'Stock disponible: '.number_format($record->availableStock(), 2, ',', '.').' '.$record->measurement_unit.'. El motivo es obligatorio.')
+                    ->modalSubmitActionLabel('Registrar merma')
+                    ->form([
+                        Forms\Components\TextInput::make('quantity')
+                            ->label('Cantidad')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.01)
+                            ->step(0.01)
+                            ->suffix(fn (Ingredient $record): string => $record->measurement_unit ?? 'unidades'),
+                        Forms\Components\Textarea::make('reason')
+                            ->label('Motivo')
+                            ->required()
+                            ->minLength(3)
+                            ->maxLength(500)
+                            ->rows(3)
+                            ->placeholder('Ej: Vencimiento de lote, rotura, error de preparación...'),
+                    ])
+                    ->action(function (Ingredient $record, array $data): void {
+                        // Defensa en profundidad: mismo criterio que visible().
+                        abort_unless(auth()->user()?->hasRole('super_admin'), 403);
+
+                        try {
+                            app(StockDeductionService::class)->registerMerma(
+                                $record,
+                                (float) $data['quantity'],
+                                (string) $data['reason'],
+                            );
+
+                            Notification::make()
+                                ->title('Merma registrada')
+                                ->body('El stock del ingrediente fue actualizado y el movimiento quedó en el historial.')
+                                ->success()
+                                ->send();
+                        } catch (\DomainException|\InvalidArgumentException $e) {
+                            Notification::make()
+                                ->title('No se pudo registrar la merma')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -192,6 +250,7 @@ class IngredientResource extends Resource
     {
         return [
             \App\Filament\Resources\IngredientResource\RelationManagers\BatchesRelationManager::class,
+            \App\Filament\Resources\IngredientResource\RelationManagers\StockMovementsRelationManager::class,
         ];
     }
     
@@ -212,5 +271,16 @@ class IngredientResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ]);
+    }
+
+    /**
+     * El Cocinero NO gestiona el inventario: los ingredientes que necesita
+     * los ve como parte de la receta en la página RecetasCocina
+     * (cocina = super_admin/Cocinero). El resource queda para la gestión.
+     */
+    public static function canViewAny(): bool
+    {
+        return parent::canViewAny()
+            && ! auth()->user()?->hasRole('Cocinero');
     }
 }

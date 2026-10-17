@@ -23,6 +23,7 @@ class SalesChart extends ChartWidget
             
             $total = Sale::whereDate('created_at', $date)
                 ->where('status', 'paid')
+                ->where('restaurant_id', 1)
                 ->sum('total_amount');
             
             $data[] = (float) $total;
